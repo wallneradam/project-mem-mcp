@@ -98,6 +98,10 @@ The search text must appear exactly once in the file. Use empty replacement to r
 
 When installed as a Claude Code plugin, you also get:
 
+### Memory Skill (auto-trigger)
+
+Guides Claude on when and how to save to project memory. Automatically triggers when insights worth persisting are discovered — architecture decisions, gotchas, non-obvious patterns, current work context. No manual intervention needed.
+
 ### Auto-read Hook
 
 Automatically reads `MEMORY.md` into context on the first prompt of each session. No manual tool call needed.

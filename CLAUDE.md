@@ -54,6 +54,7 @@ Three MCP tools:
 | `hooks/hooks.json`               | Hook definitions (auto-read + dream trigger)         |
 | `scripts/auto-read.sh`           | Reads MEMORY.md on first prompt per session           |
 | `scripts/check-dream.sh`         | Checks if dream consolidation is needed after write   |
+| `skills/memory/SKILL.md`         | Auto-trigger: when and how to save to project memory |
 | `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)       |
 | `commands/dream.md`              | `/dream` slash command for manual trigger             |
 
