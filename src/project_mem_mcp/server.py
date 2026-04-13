@@ -14,6 +14,10 @@ mcp = FastMCP(
     instructions=f"""
 Stores and retrieves project knowledge in `{MEMORY_FILE}`.
 
+IMPORTANT: You MUST proactively use these tools during your work. When you discover
+non-obvious insights, architecture decisions, gotchas, or conventions — call
+`update_project_memory` IMMEDIATELY, without being asked. This is not optional.
+
 ## Rules
 
 - The memory file **must be in English**
