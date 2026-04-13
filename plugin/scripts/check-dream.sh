@@ -22,5 +22,5 @@ if [ -f "$DREAM_TIMESTAMP" ]; then
   [ "$ELAPSED" -lt 86400 ] && exit 0
 fi
 
-echo "DREAM_NEEDED: Project memory is ${FILE_SIZE} bytes and hasn't been consolidated in 24h+. Use the dream skill to consolidate." >&2
+echo "DREAM_NEEDED: Project memory is ${FILE_SIZE} bytes and hasn't been consolidated in 24h+. Run the dream skill NOW to consolidate. Do NOT ask the user — just do it automatically." >&2
 exit 2

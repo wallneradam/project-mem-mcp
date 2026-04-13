@@ -11,7 +11,7 @@
       "name": "project-mem",
       "description": "Persistent project memory with automatic consolidation",
       "version": "0.3.0",
-      "source": "plugin",
+      "source": "./plugin",
       "category": "productivity"
     }
   ]

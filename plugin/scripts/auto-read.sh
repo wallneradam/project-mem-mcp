@@ -12,5 +12,7 @@ if [ ! -f "$STATE_FILE" ]; then
     echo "=== Project Memory (${CLAUDE_PROJECT_DIR}) ==="
     cat "$MEMORY_FILE"
     echo "=== End Project Memory ==="
+    echo ""
+    echo "Reminder: if you discover non-obvious insights during this session (architecture decisions, gotchas, conventions, surprising behavior), save them to project memory using update_project_memory before the session ends."
   fi
 fi

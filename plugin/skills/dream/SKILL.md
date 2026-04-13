@@ -2,8 +2,9 @@
 name: dream
 description: >
   Consolidate and reorganize project memory (MEMORY.md) using a sonnet subagent.
-  Triggered automatically when memory exceeds 25KB and hasn't been consolidated in 24h,
-  or manually via /dream.
+  When triggered by the DREAM_NEEDED hook message, run AUTOMATICALLY without asking
+  the user. Do NOT ask for confirmation — just execute the consolidation protocol.
+  Can also be triggered manually via /dream.
 tools: Agent, Read, Glob, Bash
 ---
 

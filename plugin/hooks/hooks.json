@@ -22,17 +22,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "prompt",
-            "prompt": "If you learned something non-obvious during this turn that would help in future sessions (architecture decisions, gotchas, conventions, key insights), save it to project memory now using update_project_memory or set_project_memory. If nothing worth persisting — approve stop.",
-            "timeout": 30
-          }
-        ]
-      }
     ]
   }
 }
