@@ -1,0 +1,6 @@
+{
+  "project-mem-mcp": {
+    "command": "uvx",
+    "args": ["project-mem-mcp"]
+  }
+}

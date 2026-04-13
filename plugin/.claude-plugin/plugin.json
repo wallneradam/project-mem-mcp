@@ -1,0 +1,5 @@
+{
+  "name": "project-mem",
+  "version": "0.3.0",
+  "description": "Persistent project memory with automatic consolidation"
+}

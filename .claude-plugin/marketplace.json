@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "cc-plugin-project-mem",
+  "version": "0.3.0",
+  "description": "Project memory management with auto-read and dream consolidation",
+  "owner": {
+    "name": "PYNESYS LLC"
+  },
+  "plugins": [
+    {
+      "name": "project-mem",
+      "description": "Persistent project memory with automatic consolidation",
+      "version": "0.3.0",
+      "source": "plugin",
+      "category": "productivity"
+    }
+  ]
+}
