@@ -48,17 +48,18 @@ Three MCP tools:
 
 ### Plugin Layer (`plugin/`)
 
-| Component                        | Purpose                                            |
-| -------------------------------- | -------------------------------------------------- |
-| `hooks/hooks.json`               | Hook definitions (auto-read + dream trigger)       |
-| `scripts/auto-read.sh`           | Reads MEMORY.md on first prompt per session         |
-| `scripts/check-dream.sh`         | Checks if dream consolidation is needed after write |
-| `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)     |
-| `commands/dream.md`              | `/dream` slash command for manual trigger           |
+| Component                        | Purpose                                              |
+| -------------------------------- | ---------------------------------------------------- |
+| `.mcp.json`                      | Registers MCP server via `uvx` for plugin installs   |
+| `hooks/hooks.json`               | Hook definitions (auto-read + dream trigger)         |
+| `scripts/auto-read.sh`           | Reads MEMORY.md on first prompt per session           |
+| `scripts/check-dream.sh`         | Checks if dream consolidation is needed after write   |
+| `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)       |
+| `commands/dream.md`              | `/dream` slash command for manual trigger             |
 
 **Auto-read:** UserPromptSubmit hook reads MEMORY.md on the first prompt per session using `session_id` for tracking.
 
-**Dream:** PostToolUse hook triggers after `set_project_memory`/`update_project_memory`. Conditions: file > 25KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
+**Dream:** PostToolUse hook triggers after memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 25KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
 
 ## Key Constraints
 
