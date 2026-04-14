@@ -149,16 +149,20 @@ def set_project_memory(
     return f"Memory saved successfully. {get_size_status(size_bytes)}"
 
 
-def validate_single_block(patch_content):
+def validate_single_block(lines):
     """
-    Validate that patch_content contains exactly one valid SEARCH/REPLACE block.
+    Validate that `lines` contains exactly one valid SEARCH/REPLACE block.
 
-    :param patch_content: The raw patch content to validate
+    Markers are matched line-exact (the whole line must equal the marker),
+    so `=======` or `>>>>>>> REPLACE` appearing as substrings within a line
+    do not count.
+
+    :param lines: The patch content split into lines
     :raises ValueError: If format is invalid or there's not exactly one block
     """
-    search_count = patch_content.count("<<<<<<< SEARCH")
-    separator_count = patch_content.count("=======")
-    replace_count = patch_content.count(">>>>>>> REPLACE")
+    search_count = sum(1 for line in lines if line == "<<<<<<< SEARCH")
+    separator_count = sum(1 for line in lines if line == "=======")
+    replace_count = sum(1 for line in lines if line == ">>>>>>> REPLACE")
 
     if search_count == 0:
         raise ValueError("Missing <<<<<<< SEARCH marker")
@@ -178,9 +182,9 @@ def parse_single_block(patch_content):
     :return: Tuple (search_text, replace_text)
     :raises ValueError: If patch format is invalid
     """
-    validate_single_block(patch_content)
-
     lines = patch_content.splitlines()
+    validate_single_block(lines)
+
     search_start = None
     separator_idx = None
     replace_end = None
@@ -193,9 +197,6 @@ def parse_single_block(patch_content):
         elif line == ">>>>>>> REPLACE" and separator_idx is not None:
             replace_end = i
             break
-
-    if search_start is None or separator_idx is None or replace_end is None:
-        raise ValueError("Invalid patch format")
 
     search_text = "\n".join(lines[search_start:separator_idx])
     replace_text = "\n".join(lines[separator_idx + 1:replace_end])
