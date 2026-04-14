@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/auto-read.sh",
+            "command": "uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/auto_read.py",
             "timeout": 5
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-dream.sh",
+            "command": "uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/check_dream.py",
             "timeout": 5
           }
         ]
