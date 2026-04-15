@@ -13,11 +13,21 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 HAIKU_MODEL = "claude-haiku-4-5-20251001"
 MAX_CHARS = 8000
-TIMEOUT_SEC = 20
+TIMEOUT_SEC = 45
+LOG_FILE = Path("/tmp/memory-nudge.log")
+
+
+def log(msg: str) -> None:
+    try:
+        with LOG_FILE.open("a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}\n")
+    except OSError:
+        pass
 
 CLASSIFIER_PROMPT = """You are a binary classifier. Decide whether the following conversation exchange contains anything potentially worth saving to persistent project memory for future sessions.
 
@@ -44,6 +54,37 @@ REMINDER = (
 )
 
 
+def _extract_text(content) -> str:
+    """Return concatenated text blocks. Skips tool_use/tool_result blocks."""
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    chunks = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            chunks.append(block.get("text", ""))
+    return "\n".join(chunks)
+
+
+def _is_real_user_message(entry: dict) -> bool:
+    """True if this entry is a human-typed user message (not a tool_result)."""
+    if entry.get("type") != "user":
+        return False
+    msg = entry.get("message") or {}
+    content = msg.get("content")
+    if isinstance(content, str):
+        return bool(content.strip())
+    if isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                if block.get("text", "").strip():
+                    return True
+    return False
+
+
 def extract_last_exchange(transcript_path: str) -> str:
     try:
         lines = Path(transcript_path).read_text(encoding="utf-8").splitlines()
@@ -56,7 +97,7 @@ def extract_last_exchange(transcript_path: str) -> str:
             entry = json.loads(lines[i])
         except json.JSONDecodeError:
             continue
-        if entry.get("type") == "user":
+        if _is_real_user_message(entry):
             last_user_idx = i
             break
 
@@ -69,47 +110,48 @@ def extract_last_exchange(transcript_path: str) -> str:
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
+        etype = entry.get("type")
+        if etype not in ("user", "assistant"):
+            continue
         msg = entry.get("message") or {}
-        role = msg.get("role") or entry.get("type", "")
-        content = msg.get("content")
-        text = ""
-        if isinstance(content, str):
-            text = content
-        elif isinstance(content, list):
-            chunks = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") == "text":
-                    chunks.append(block.get("text", ""))
-            text = "\n".join(chunks)
-        text = text.strip()
-        if text:
-            parts.append(f"[{role}]\n{text}")
+        text = _extract_text(msg.get("content")).strip()
+        if not text:
+            continue
+        role = msg.get("role") or etype
+        parts.append(f"[{role}]\n{text}")
 
     return "\n\n".join(parts)
 
 
 def main() -> int:
+    log("=== hook fired ===")
     try:
         payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
+    except (json.JSONDecodeError, ValueError) as e:
+        log(f"no/invalid payload: {e}")
         return 0
 
     if payload.get("stop_hook_active"):
+        log("stop_hook_active=true, skipping")
         return 0
 
     transcript_path = payload.get("transcript_path")
     if not transcript_path:
+        log("no transcript_path in payload")
         return 0
 
     exchange = extract_last_exchange(transcript_path)
     if not exchange.strip():
+        log(f"empty exchange from {transcript_path}")
         return 0
 
     if len(exchange) > MAX_CHARS:
         exchange = exchange[-MAX_CHARS:]
 
+    log(f"exchange len={len(exchange)}, calling Haiku...")
     prompt = CLASSIFIER_PROMPT.format(exchange=exchange)
 
+    t0 = time.time()
     try:
         result = subprocess.run(
             ["claude", "-p", prompt, "--model", HAIKU_MODEL],
@@ -117,13 +159,23 @@ def main() -> int:
             text=True,
             timeout=TIMEOUT_SEC,
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except subprocess.TimeoutExpired:
+        log(f"TIMEOUT after {TIMEOUT_SEC}s")
+        return 0
+    except (FileNotFoundError, OSError) as e:
+        log(f"subprocess error: {e}")
         return 0
 
-    answer = result.stdout.strip().upper()
+    dt = time.time() - t0
+    answer_raw = result.stdout.strip()
+    answer = answer_raw.upper()
+    log(f"Haiku rc={result.returncode} dt={dt:.1f}s answer={answer_raw!r} stderr={result.stderr.strip()[:200]!r}")
+
     if not answer.startswith("YES"):
+        log("classified NO, silent exit")
         return 0
 
+    log("classified YES, emitting reminder (exit 2)")
     print(REMINDER, file=sys.stderr)
     return 2
 

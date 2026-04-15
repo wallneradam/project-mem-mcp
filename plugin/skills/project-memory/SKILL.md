@@ -91,6 +91,12 @@ updated or new text
 - **No sensitive data** — never store passwords, tokens, API keys, emails
 - **Update, don't duplicate** — before adding, check if similar info already exists
 - **Current knowledge only** — the memory reflects what is true NOW, not history
+- **Fix stale memory immediately, without asking** — if anything in the conversation
+  reveals that a memory entry is outdated or wrong (a renamed file, a changed version,
+  a reversed decision, a superseded pattern), correct it right away via
+  `update_project_memory`. Do NOT ask for permission, do NOT defer to end of session.
+  Stale memory silently poisons future sessions — treat fixing it as part of the
+  current task, not a separate chore.
 - **Be concise but complete** — optimize for LLM readability, every line should earn its place
 - **Do NOT ask the user for confirmation** before saving or updating memory — just call
   the MCP tool. The user has already opted in by installing this plugin; pausing to
