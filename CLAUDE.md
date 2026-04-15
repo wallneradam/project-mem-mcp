@@ -50,17 +50,20 @@ Three MCP tools:
 
 | Component                        | Purpose                                              |
 | -------------------------------- | ---------------------------------------------------- |
-| `.mcp.json`                      | Registers MCP server via `uvx` for plugin installs   |
-| `hooks/hooks.json`               | Hook definitions (auto-read + dream trigger)         |
-| `scripts/auto-read.sh`           | Reads MEMORY.md on first prompt per session           |
-| `scripts/check-dream.sh`         | Checks if dream consolidation is needed after write   |
-| `skills/memory/SKILL.md`         | Auto-trigger: when and how to save to project memory |
-| `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)       |
+| `.mcp.json`                      | Registers MCP server via `uvx` for plugin installs    |
+| `hooks/hooks.json`               | Hook definitions (auto-read, dream trigger, nudge)    |
+| `scripts/auto_read.py`           | Reads MEMORY.md on first prompt per session           |
+| `scripts/check_dream.py`         | Checks if dream consolidation is needed after write   |
+| `scripts/memory_nudge.py`        | Stop-hook Haiku classifier that nudges save decisions |
+| `skills/project-memory/SKILL.md` | Auto-trigger: when and how to save to project memory  |
+| `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)        |
 | `commands/dream.md`              | `/dream` slash command for manual trigger             |
 
 **Auto-read:** UserPromptSubmit hook reads MEMORY.md on the first prompt per session using `session_id` for tracking.
 
 **Dream:** PostToolUse hook triggers after memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 25KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
+
+**Memory nudge:** Stop hook extracts the last user message + following assistant responses from the transcript, asks Haiku 4.5 via `claude -p` for a binary YES/NO, and on YES blocks the stop with a reminder (exit 2 + stderr). The main model decides whether to actually save. Guarded by `stop_hook_active` to prevent loops.
 
 ## Key Constraints
 

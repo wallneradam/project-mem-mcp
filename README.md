@@ -7,6 +7,7 @@ An MCP server and Claude Code plugin for persistent project memory. Allows AI ag
 - **Store & retrieve** project knowledge in Markdown format
 - **Incremental updates** via SEARCH/REPLACE patches
 - **Auto-read hook** — automatically loads project memory on first prompt (Claude Code plugin)
+- **Memory nudge** — Haiku-based classifier reminds the main model to consider saving when something memory-worthy appears (Claude Code plugin)
 - **Dream consolidation** — automatic memory cleanup and deduplication (Claude Code plugin)
 
 ## Installation
@@ -98,13 +99,19 @@ The search text must appear exactly once in the file. Use empty replacement to r
 
 When installed as a Claude Code plugin, you also get:
 
-### Memory Skill (auto-trigger)
+### Project-memory Skill (auto-trigger)
 
-Guides Claude on when and how to save to project memory. Automatically triggers when insights worth persisting are discovered — architecture decisions, gotchas, non-obvious patterns, current work context. No manual intervention needed.
+Guides Claude on when and how to save to project memory. Automatically triggers when insights worth persisting are discovered — architecture decisions, gotchas, non-obvious patterns, current work context. The skill is marked `user-invocable: false` so it does not appear in the slash command picker; the main model invokes it autonomously.
 
 ### Auto-read Hook
 
 Automatically reads `MEMORY.md` into context on the first prompt of each session. No manual tool call needed.
+
+### Memory Nudge (Stop hook)
+
+At the end of each assistant turn, a lightweight Haiku classifier reviews the last user message and the assistant's responses. If the exchange looks like it might contain something worth remembering (preferences, corrections, decisions, gotchas, durable project context), the hook injects a reminder asking the main model to review the exchange against `MEMORY.md` and save if appropriate. The main model always decides what — if anything — to save.
+
+Requires the `claude` CLI to be available in the hook's PATH. Rough cost: a few tenths of a cent per turn.
 
 ### Dream Consolidation
 

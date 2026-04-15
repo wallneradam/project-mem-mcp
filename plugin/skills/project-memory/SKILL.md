@@ -1,5 +1,6 @@
 ---
-name: memory
+name: project-memory
+user-invocable: false
 description: >
   Maintain persistent project memory in MEMORY.md using MCP tools.
   ALWAYS save to project memory when you discover something worth remembering
