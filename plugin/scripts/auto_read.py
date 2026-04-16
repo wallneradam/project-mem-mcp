@@ -13,13 +13,22 @@ import tempfile
 from pathlib import Path
 
 RULES = """IMPORTANT — Project Memory Rules (you MUST follow these):
-- When you discover non-obvious insights (architecture decisions, gotchas, conventions, surprising behavior), IMMEDIATELY save them using the update_project_memory MCP tool. Do NOT wait until the end of the session.
-- When existing memory information becomes outdated or wrong (anywhere in the conversation — a renamed file, changed version, reversed decision, superseded pattern), fix it IMMEDIATELY and WITHOUT asking the user. Do not defer to end of session. Stale memory silently poisons future sessions.
-- At the end of a meaningful task, or when the user signals a pause (e.g. 'ennyi mára', 'jó így', 'folytatjuk'), append a 1-2 line entry to the '## Recent Sessions' section (newest-first, format: '- YYYY-MM-DD: <what was done / decided>. Next: <optional>'). The git log is NOT in your context — this log is the only way future sessions know where you left off.
-- Use update_project_memory with SEARCH/REPLACE blocks for incremental changes. Use set_project_memory only for new projects or complete rewrites.
-- Do NOT save: changelog entries, info already in CLAUDE.md, obvious things, sensitive data.
-- All memory content must be in English.
-- The MCP tool names are: get_project_memory, set_project_memory, update_project_memory (may have a prefix like mcp__plugin_project-mem_project-mem-mcp__)."""
+
+DEFAULT TO SAVE. Under-saving silently starves future sessions of context — that is the real risk, not over-saving. The dream protocol consolidates excess later. When in doubt, save.
+
+- Save IMMEDIATELY (mid-task, without asking) when you discover: architecture decisions and WHY, non-obvious patterns or conventions, gotchas, surprising behavior, key file purposes, external dependency quirks, integration notes, or current work context. Use update_project_memory. Do NOT wait for session end. Do NOT ask permission — the user opted in by installing this plugin.
+
+- Fix stale entries IMMEDIATELY, without asking. If anything in the conversation reveals a project memory entry is outdated or wrong (renamed file, changed version, reversed decision, superseded pattern), correct it right away. Stale project memory silently poisons future sessions.
+
+- Recent Sessions log — append a 1-2 line bullet to the '## Recent Sessions' section AFTER ANY non-trivial task completion, NOT only at pause signals. Triggers include: finishing a multi-step edit, making a design/architecture decision, debugging something unexpected, completing a refactor, resolving a user question that required investigation, or when the user signals a pause ('ennyi mára', 'jó így', 'folytatjuk'). Newest-first. Format: '- YYYY-MM-DD: <what was done / decided>. Next: <optional>.'. The git log is NOT in context across sessions — this log is the ONLY cross-session continuity.
+
+- Recent Sessions ≠ changelog. Do not confuse them:
+    * Recent Sessions (SAVE): high-level session state, 1-2 lines per task. E.g. '- 2026-04-16: Replaced bare "memory" with "project memory" across plugin+docs.'
+    * Changelog (DO NOT SAVE): per-commit code-change lists. E.g. 'Fixed null ptr in foo.py; added field X to Y.' — git log owns this.
+
+- Do NOT save: per-commit changelog entries (see above), info already in CLAUDE.md files, obvious things derivable from code or file names, temporary debugging state, sensitive data (passwords, tokens, emails).
+
+- Mechanics: update_project_memory with SEARCH/REPLACE blocks for incremental changes; set_project_memory only for new projects or complete rewrites. All content in English. MCP tool names may have prefix like mcp__plugin_project-mem_project-mem-mcp__."""
 
 
 def main() -> int:
@@ -29,7 +38,7 @@ def main() -> int:
         payload = {}
 
     session_id = payload.get("session_id") or str(os.getpid())
-    state_file = Path(tempfile.gettempdir()) / f"mem-read-{session_id}"
+    state_file = Path(tempfile.gettempdir()) / f"project-memory-read-{session_id}"
 
     if state_file.exists():
         return 0

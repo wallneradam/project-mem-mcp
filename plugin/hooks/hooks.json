@@ -22,17 +22,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/memory_nudge.py",
-            "timeout": 25
-          }
-        ]
-      }
     ]
   }
 }

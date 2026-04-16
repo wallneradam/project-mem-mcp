@@ -3,27 +3,64 @@ name: project-memory
 user-invocable: false
 description: >
   Maintain persistent project memory in MEMORY.md using MCP tools.
-  ALWAYS save to project memory when you discover something worth remembering
-  for future sessions: architecture decisions, non-obvious patterns, gotchas,
-  key file purposes, integration notes, or current work context.
-  ALWAYS update project memory when existing information becomes outdated or wrong.
-  ALWAYS remove completed task details from Current Work after extracting lessons.
-  ALWAYS append a short Recent Sessions entry at the end of a meaningful task or
-  when the user signals a pause/end ("ennyi mára", "jó így", "holnap folytatjuk", etc.) —
-  git log is NOT in context across sessions, so this is the only way to track progress.
-  Do NOT save: information already in CLAUDE.md, trivial/obvious things,
-  temporary debugging notes, or verbose change logs (a 1-2 line session entry is fine).
+  DEFAULT TO SAVE — under-saving silently starves future sessions of context; the dream
+  protocol consolidates excess later. When in doubt, save.
+  ALWAYS save project memory IMMEDIATELY (mid-task, without asking) when you discover
+  architecture decisions, non-obvious patterns or conventions, gotchas, surprising
+  behavior, key file purposes, external dependency quirks, or current work context.
+  ALWAYS fix project memory entries when existing information becomes outdated or wrong
+  (renamed file, changed version, reversed decision) — do not defer, do not ask.
+  ALWAYS append a 1-2 line entry to '## Recent Sessions' AFTER ANY non-trivial task
+  completion (NOT only at pause signals): finishing a multi-step edit, making a design
+  decision, debugging something unexpected, completing a refactor, resolving a question
+  that required investigation, or when the user signals a pause ("ennyi mára", "jó így",
+  "folytatjuk"). The git log is NOT in context across sessions — this log is the only
+  cross-session continuity.
+  Recent Sessions ≠ changelog: Recent Sessions is high-level session state (SAVE);
+  changelog is per-commit code-change lists (git owns that — DO NOT save).
+  Do NOT save: information already in CLAUDE.md, obvious things derivable from code,
+  temporary debugging state, sensitive data.
   Do NOT use this skill for simple questions or when only reading code.
 tools: mcp__*__get_project_memory, mcp__*__set_project_memory, mcp__*__update_project_memory
 ---
 
-# Memory — Persistent Project Knowledge
+# Project Memory — Persistent Project Knowledge
 
 You have access to a project memory system that persists knowledge between conversations
 via a `MEMORY.md` file in the project directory.
 
-The memory is automatically loaded at the start of each session (via hook).
+The project memory is automatically loaded at the start of each session (via hook).
 Your job is to **keep it up to date** as you work.
+
+## Scope — Project Memory vs. Auto Memory
+
+This skill manages **project memory** — a single `MEMORY.md` file in the project
+directory that stores shared, code-level knowledge (architecture, conventions,
+gotchas). It is distinct from **auto memory**, Claude Code's built-in per-user
+memory under `~/.claude/projects/<hash>/memory/`, which stores personal context
+about the user and their collaboration preferences.
+
+| Aspect   | Project memory                | Auto memory                               |
+| -------- | ----------------------------- | ----------------------------------------- |
+| Location | `<project>/MEMORY.md`         | `~/.claude/projects/<hash>/memory/`       |
+| Scope    | Shared (team, any agent)      | Private (per user, per working directory) |
+| Content  | Code/architecture/conventions | User profile, feedback, session state     |
+| Language | English only                  | Conversation language                     |
+
+Rule of thumb: **if it describes the code, it belongs here.** If it describes
+the user or how to collaborate with them, it belongs to auto memory. Never
+duplicate between the two systems; at most keep a one-line pointer in auto
+memory referencing the project memory.
+
+## Default to Save
+
+**Under-saving silently starves future sessions of context — that is the real risk,
+not over-saving.** The dream protocol consolidates excess later. When in doubt, save.
+
+Agents frequently under-save because nothing feels "important enough" in isolation;
+resist that instinct. If the insight took you any effort to reach (debugging, reading
+docs, trial and error), a future agent will want it too. Err on the side of writing
+one short bullet rather than nothing.
 
 ## When to Save
 
@@ -40,10 +77,20 @@ Save when you learn something that took effort to discover and would help in fut
 
 ## Recent Sessions — Format & Rules
 
-Append a short bullet under `## Recent Sessions` when:
-- A task or subtask concludes (whether committed or not)
-- The user signals a pause ("ennyi mára", "folytatjuk", "jó így", "szünet", etc.)
+Append a short bullet under `## Recent Sessions` **AFTER ANY non-trivial task completion**,
+not only at pause signals. Triggers include:
+
+- Finishing a multi-step edit (code, docs, config)
+- Making a design, architecture, or naming decision
+- Debugging something unexpected or surprising
+- Completing a refactor or renaming
+- Resolving a user question that required investigation
+- Abandoning an approach after trying it ("tried X, reverted because Y")
+- The user signals a pause ("ennyi mára", "jó így", "folytatjuk", "szünet")
 - A decision was made that might matter later
+
+If you finished a meaningful piece of work and you didn't add a bullet, you probably
+should have.
 
 Entry format (one line, ~15-25 words):
 
@@ -53,7 +100,7 @@ Entry format (one line, ~15-25 words):
 
 Focus on **state and decisions**, not file-by-file changes (those are in git diff).
 Examples:
-- `2026-04-14: Added Recent Sessions section to memory skill + dream protocol. Next: test dream consolidation on old entries.`
+- `2026-04-14: Added Recent Sessions section to project memory skill + dream protocol. Next: test dream consolidation on old entries.`
 - `2026-04-10: Tried switching to unified diff patches — reverted, SEARCH/REPLACE is more reliable.`
 - `2026-04-08: Plugin install works via marketplace. Blocked on: Stop hook noise during plugin dev.`
 
@@ -62,8 +109,13 @@ Keep the list ordered newest-first. Cap at ~10 entries — the dream protocol co
 ## When NOT to Save
 
 - Information already in CLAUDE.md files — no duplication
-- Change log entries ("Fixed X", "Added Y") — git history handles this
-- Completed task details — extract the lesson, delete the task info
+- **Per-commit changelog entries** ("Fixed null ptr in foo.py", "Added field X to Y") —
+  git log owns these. **Do NOT confuse with Recent Sessions entries, which ARE required:**
+    - SAVE (Recent Sessions, high-level session state):
+      `- 2026-04-16: Replaced bare "memory" with "project memory" across plugin+docs.`
+    - DO NOT SAVE (changelog, per-commit code-change list):
+      `Fixed null ptr in foo.py; added field X to Y.`
+- Completed task details in "Current Work" — extract the lesson, delete the task info
 - Anything obvious from file names, code structure, or standard conventions
 - Temporary debugging state or session-specific notes
 
@@ -81,26 +133,26 @@ updated or new text
 ```
 
 **Use `set_project_memory`** only when:
-- Creating a memory file for a new project
+- Creating a project memory file for a new project
 - The file needs complete reorganization
 - `update_project_memory` fails (search text not found or not unique)
 
 ## Rules
 
-- **English only** — all memory content must be in English
+- **English only** — all project memory content must be in English
 - **No sensitive data** — never store passwords, tokens, API keys, emails
 - **Update, don't duplicate** — before adding, check if similar info already exists
-- **Current knowledge only** — the memory reflects what is true NOW, not history
-- **Fix stale memory immediately, without asking** — if anything in the conversation
-  reveals that a memory entry is outdated or wrong (a renamed file, a changed version,
+- **Current knowledge only** — the project memory reflects what is true NOW, not history
+- **Fix stale project memory immediately, without asking** — if anything in the conversation
+  reveals that a project memory entry is outdated or wrong (a renamed file, a changed version,
   a reversed decision, a superseded pattern), correct it right away via
   `update_project_memory`. Do NOT ask for permission, do NOT defer to end of session.
-  Stale memory silently poisons future sessions — treat fixing it as part of the
+  Stale project memory silently poisons future sessions — treat fixing it as part of the
   current task, not a separate chore.
 - **Be concise but complete** — optimize for LLM readability, every line should earn its place
-- **Do NOT ask the user for confirmation** before saving or updating memory — just call
-  the MCP tool. The user has already opted in by installing this plugin; pausing to
-  ask ("Shall I save this?", "Want me to update MEMORY.md?") is friction, not safety.
+- **Do NOT ask the user for confirmation** before saving or updating project memory — just
+  call the MCP tool. The user has already opted in by installing this plugin; pausing to
+  ask ("Shall I save this?", "Want me to update project memory?") is friction, not safety.
   Save silently and mention it briefly afterward if relevant.
 
 ## Recommended Structure

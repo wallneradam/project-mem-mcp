@@ -1,4 +1,4 @@
-"""Check if dream consolidation is needed after a memory write.
+"""Check if dream consolidation is needed after a project memory write.
 
 Conditions: file > 25KB AND last dream was > 24h ago (or never).
 Exit 0 = silent (no dream needed), exit 2 + stderr = signal to Claude.

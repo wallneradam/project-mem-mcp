@@ -8,13 +8,13 @@ description: >
 tools: Agent, Read, Glob, Bash
 ---
 
-# Dream — Memory Consolidation
+# Dream — Project Memory Consolidation
 
 When this skill is triggered, spawn a **sonnet** Agent subagent to consolidate the project's MEMORY.md.
 
 ## Protocol
 
-1. **Backup** the current MEMORY.md to `.claude/.memory-backup-pre-dream.md`
+1. **Backup** the current MEMORY.md to `.claude/.project-memory-backup-pre-dream.md`
 2. **Read** the current MEMORY.md content
 3. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`)
 4. **Consolidate** by spawning a sonnet Agent with the prompt below.

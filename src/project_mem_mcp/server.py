@@ -20,7 +20,7 @@ non-obvious insights, architecture decisions, gotchas, or conventions — call
 
 ## Rules
 
-- The memory file **must be in English**
+- The project memory file **must be in English**
 - Never store sensitive information (passwords, tokens, emails, etc.)
 - Use `set_project_memory` when creating new or completely reorganizing
 - Use `update_project_memory` for incremental changes
@@ -129,7 +129,7 @@ def set_project_memory(
     """
     Set the whole project memory for the given project path in Markdown format.
 
-    Use when creating a new memory file, completely replacing an existing one,
+    Use when creating a new project memory file, completely replacing an existing one,
     or when `update_project_memory` fails to apply patches.
 
     :raises FileNotFoundError: If the project path doesn't exist
@@ -146,7 +146,7 @@ def set_project_memory(
         f.write(project_info)
 
     size_bytes = memory_file.stat().st_size
-    return f"Memory saved successfully. {get_size_status(size_bytes)}"
+    return f"Project memory saved successfully. {get_size_status(size_bytes)}"
 
 
 def validate_single_block(lines):
@@ -215,7 +215,7 @@ def update_project_memory(
     Required format:
     ```
     <<<<<<< SEARCH
-    Text to find in the memory file
+    Text to find in the project memory file
     =======
     Text to replace it with
     >>>>>>> REPLACE
@@ -224,7 +224,7 @@ def update_project_memory(
     Use empty replacement text to remove content.
 
     :return: Success message
-    :raises FileNotFoundError: If the project path or memory file doesn't exist
+    :raises FileNotFoundError: If the project path or project memory file doesn't exist
     :raises ValueError: If patch format is invalid or search text isn't unique
     """
     project_dir = Path(project_path).resolve()
@@ -233,7 +233,7 @@ def update_project_memory(
     memory_file = project_dir / MEMORY_FILE
     if not memory_file.exists():
         raise FileNotFoundError(
-            f"Memory file does not exist at {memory_file}. Use `set_project_memory` to set the whole memory instead."
+            f"Project memory file does not exist at {memory_file}. Use `set_project_memory` to set the whole project memory instead."
         )
 
     # Read the current file content
@@ -260,4 +260,4 @@ def update_project_memory(
         f.write(new_content)
 
     size_bytes = memory_file.stat().st_size
-    return f"Successfully updated memory file. {get_size_status(size_bytes)}"
+    return f"Successfully updated project memory. {get_size_status(size_bytes)}"

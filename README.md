@@ -7,8 +7,7 @@ An MCP server and Claude Code plugin for persistent project memory. Allows AI ag
 - **Store & retrieve** project knowledge in Markdown format
 - **Incremental updates** via SEARCH/REPLACE patches
 - **Auto-read hook** — automatically loads project memory on first prompt (Claude Code plugin)
-- **Memory nudge** — Haiku-based classifier reminds the main model to consider saving when something memory-worthy appears (Claude Code plugin)
-- **Dream consolidation** — automatic memory cleanup and deduplication (Claude Code plugin)
+- **Dream consolidation** — automatic project memory cleanup and deduplication (Claude Code plugin)
 
 ## Installation
 
@@ -69,7 +68,7 @@ get_project_memory(project_path: str) -> str
 
 ### set_project_memory
 
-Overwrites the entire `MEMORY.md`. Use when creating a new memory or when patches fail.
+Overwrites the entire `MEMORY.md`. Use when creating a new project memory or when patches fail.
 
 ```
 set_project_memory(project_path: str, project_info: str)
@@ -87,7 +86,7 @@ Patch format:
 
 ```
 <<<<<<< SEARCH
-Text to find in the memory file
+Text to find in the project memory file
 =======
 Text to replace it with
 >>>>>>> REPLACE
@@ -107,15 +106,9 @@ Guides Claude on when and how to save to project memory. Automatically triggers 
 
 Automatically reads `MEMORY.md` into context on the first prompt of each session. No manual tool call needed.
 
-### Memory Nudge (Stop hook)
-
-At the end of each assistant turn, a lightweight Haiku classifier reviews the last user message and the assistant's responses. If the exchange looks like it might contain something worth remembering (preferences, corrections, decisions, gotchas, durable project context), the hook injects a reminder asking the main model to review the exchange against `MEMORY.md` and save if appropriate. The main model always decides what — if anything — to save.
-
-Requires the `claude` CLI to be available in the hook's PATH. Rough cost: a few tenths of a cent per turn.
-
 ### Dream Consolidation
 
-Automatic memory maintenance triggered after writes when:
+Automatic project memory maintenance triggered after writes when:
 - File size exceeds 25KB
 - Last consolidation was more than 24 hours ago
 
@@ -129,8 +122,8 @@ Manual trigger: `/dream`
 ## Security
 
 - Project paths are validated against `--allowed-dir` arguments
-- Memory files should never contain sensitive information
-- Memory files must be in English
+- Project memory files should never contain sensitive information
+- Project memory files must be in English
 
 ## Dependencies
 
