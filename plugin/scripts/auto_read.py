@@ -31,6 +31,21 @@ DEFAULT TO SAVE. Under-saving silently starves future sessions of context — th
 - Mechanics: update_project_memory with SEARCH/REPLACE blocks for incremental changes; set_project_memory only for new projects or complete rewrites. All content in English. MCP tool names may have prefix like mcp__plugin_project-mem_project-mem-mcp__."""
 
 
+PRELOAD_DIRECTIVE = """## MANDATORY FIRST ACTION — PRELOAD PROJECT MEMORY TOOLS
+
+The project memory MCP tools (`get_project_memory`, `set_project_memory`, `update_project_memory`) are typically registered as DEFERRED tools in this harness — their schemas are not loaded until you call `ToolSearch`. Without preloading, every save later in the session pays a friction cost (ToolSearch round-trip, "loading tools…" narration) that causes delays and missed saves.
+
+To eliminate this friction, your VERY FIRST tool call in this session MUST be:
+
+    ToolSearch(query="select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory")
+
+Rules for this preload step:
+- Do it BEFORE responding to the user, BEFORE any other tool call, BEFORE any explanatory text.
+- Do it silently — no "let me preload the tools" narration. Just call ToolSearch, then proceed with the user's actual request.
+- Call it unconditionally every session. If the tools happen to be already loaded (not deferred), the call is a cheap no-op.
+- After this single call, the three tool schemas stay in context for the rest of the session — you can invoke them freely without any further ToolSearch."""
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -49,19 +64,27 @@ def main() -> int:
         return 0
 
     memory_file = Path(project_dir) / "MEMORY.md"
-    if not memory_file.is_file():
-        return 0
 
-    try:
-        content = memory_file.read_text(encoding="utf-8")
-    except OSError:
-        return 0
+    if memory_file.is_file():
+        try:
+            body = memory_file.read_text(encoding="utf-8")
+        except OSError:
+            return 0
+    else:
+        body = (
+            "(No MEMORY.md exists yet in this project. If you discover something "
+            "worth persisting — architecture decisions, non-obvious patterns, "
+            "gotchas, key file purposes, current work context — create it with "
+            "`set_project_memory`.)"
+        )
 
     print(f"=== Project Memory ({project_dir}) ===")
-    print(content)
+    print(body)
     print("=== End Project Memory ===")
     print()
     print(RULES)
+    print()
+    print(PRELOAD_DIRECTIVE)
     return 0
 
 
