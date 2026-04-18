@@ -14,12 +14,11 @@ When this skill is triggered, spawn a **sonnet** Agent subagent to consolidate t
 
 ## Protocol
 
-1. **Backup** the current MEMORY.md to `.claude/.project-memory-backup-pre-dream.md`
-2. **Read** the current MEMORY.md content
-3. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`)
-4. **Consolidate** by spawning a sonnet Agent with the prompt below.
+1. **Read** the current MEMORY.md content
+2. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`)
+3. **Consolidate** by spawning a sonnet Agent with the prompt below.
    Substitute `{TODAY}` with today's date in `YYYY-MM-DD` format before sending.
-5. **Update timestamp**: write current epoch to `.claude/.last-dream-timestamp`
+4. **Update timestamp**: run `uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/update_dream_timestamp.py` via Bash. This writes `last_dream: <current UTC ISO 8601>` into the YAML frontmatter at the top of `MEMORY.md` (creates the frontmatter block if absent, updates in place otherwise).
 
 ## Sonnet Agent Prompt
 
@@ -64,5 +63,5 @@ Write back the consolidated MEMORY.md using the set_project_memory MCP tool.
 ## Important
 
 - The sonnet agent writes back via `set_project_memory` to maintain path validation
-- Always create the backup BEFORE the agent runs
-- The `.claude/` directory must exist (create with `mkdir -p` if needed)
+- Step 4 runs AFTER the sonnet agent finishes its `set_project_memory` write. The `update_dream_timestamp.py` script rewrites the file in place with the new frontmatter — do not inline-edit the timestamp in the prompt or rely on the sonnet agent to preserve it
+- No backup is written. If you need to recover the pre-dream state, use git (`git show HEAD:MEMORY.md`, `git checkout HEAD -- MEMORY.md`). If the project isn't in git, that's the user's accepted risk

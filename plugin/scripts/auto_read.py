@@ -1,6 +1,9 @@
-"""Read project memory on first prompt only (per session).
+"""Emit project-memory priming instructions on the first prompt of each session.
 
-Uses session_id from hook input JSON for reliable session tracking.
+The hook output stays small (rules + preload directive only) so the harness
+never truncates it. The MEMORY.md content itself is loaded by the agent via
+`get_project_memory`, whose tool result has no inline-size limit.
+
 Cross-platform: uses tempfile.gettempdir() instead of hardcoded /tmp.
 """
 
@@ -31,19 +34,23 @@ DEFAULT TO SAVE. Under-saving silently starves future sessions of context — th
 - Mechanics: update_project_memory with SEARCH/REPLACE blocks for incremental changes; set_project_memory only for new projects or complete rewrites. All content in English. MCP tool names may have prefix like mcp__plugin_project-mem_project-mem-mcp__."""
 
 
-PRELOAD_DIRECTIVE = """## MANDATORY FIRST ACTION — PRELOAD PROJECT MEMORY TOOLS
+PRELOAD_DIRECTIVE_TEMPLATE = """## MANDATORY FIRST ACTIONS — PRELOAD TOOLS AND LOAD PROJECT MEMORY
 
-The project memory MCP tools (`get_project_memory`, `set_project_memory`, `update_project_memory`) are typically registered as DEFERRED tools in this harness — their schemas are not loaded until you call `ToolSearch`. Without preloading, every save later in the session pays a friction cost (ToolSearch round-trip, "loading tools…" narration) that causes delays and missed saves.
+The project memory MCP tools (`get_project_memory`, `set_project_memory`, `update_project_memory`) are typically registered as DEFERRED in this harness — their schemas are not loaded until you call `ToolSearch`. Additionally, the MEMORY.md content is NOT injected inline into this hook output (the harness truncates large hook stdouts); you must load it explicitly via `get_project_memory`, whose tool result has no size limit.
 
-To eliminate this friction, your VERY FIRST tool call in this session MUST be:
+Your VERY FIRST tool calls in this session MUST be, in order:
 
-    ToolSearch(query="select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory")
+1. `ToolSearch(query="select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory")`
+2. `get_project_memory(project_path="{project_dir}")` — loads the full MEMORY.md into context.
 
-Rules for this preload step:
-- Do it BEFORE responding to the user, BEFORE any other tool call, BEFORE any explanatory text.
-- Do it silently — no "let me preload the tools" narration. Just call ToolSearch, then proceed with the user's actual request.
-- Call it unconditionally every session. If the tools happen to be already loaded (not deferred), the call is a cheap no-op.
-- After this single call, the three tool schemas stay in context for the rest of the session — you can invoke them freely without any further ToolSearch."""
+Rules for these preload steps:
+- Do them BEFORE responding to the user, BEFORE any other tool call, BEFORE any explanatory text.
+- Do them silently — no "let me preload…" narration. Just run the two calls, then proceed with the user's actual request.
+- Call both unconditionally every session. If the tools happen to be already loaded, step 1 is a cheap no-op.
+- If `get_project_memory` raises FileNotFoundError, no MEMORY.md exists yet in this project — proceed without one and create it later via `set_project_memory` when you have something worth persisting.
+- Ignore any YAML frontmatter (`---\\nlast_dream: ...\\n---`) at the top of the returned content — it is internal metadata, not project context.
+
+After these two calls, the three tool schemas and the full project memory stay in context for the rest of the session — all later saves and reads are friction-free."""
 
 
 def main() -> int:
@@ -63,28 +70,9 @@ def main() -> int:
     if not project_dir:
         return 0
 
-    memory_file = Path(project_dir) / "MEMORY.md"
-
-    if memory_file.is_file():
-        try:
-            body = memory_file.read_text(encoding="utf-8")
-        except OSError:
-            return 0
-    else:
-        body = (
-            "(No MEMORY.md exists yet in this project. If you discover something "
-            "worth persisting — architecture decisions, non-obvious patterns, "
-            "gotchas, key file purposes, current work context — create it with "
-            "`set_project_memory`.)"
-        )
-
-    print(f"=== Project Memory ({project_dir}) ===")
-    print(body)
-    print("=== End Project Memory ===")
-    print()
     print(RULES)
     print()
-    print(PRELOAD_DIRECTIVE)
+    print(PRELOAD_DIRECTIVE_TEMPLATE.format(project_dir=project_dir))
     return 0
 
 

@@ -115,9 +115,12 @@ Automatic project memory maintenance triggered after writes when:
 The dream spawns a sonnet subagent that:
 - Removes content duplicated in CLAUDE.md files
 - Restructures for clarity and LLM readability
-- Creates a backup before consolidating
+
+No backup is written; use `git` to recover the pre-dream state if needed.
 
 Manual trigger: `/dream`
+
+The last-dream timestamp is stored as `last_dream:` inside a YAML frontmatter block at the top of `MEMORY.md`. Projects previously using this plugin may still have a `.claude/.last-dream-timestamp` file — that file is now ignored and can be safely deleted (the first dream run after upgrade repopulates the frontmatter).
 
 ## Security
 
