@@ -52,15 +52,18 @@ Three MCP tools:
 | -------------------------------- | ---------------------------------------------------- |
 | `.mcp.json`                      | Registers MCP server via `uvx` for plugin installs    |
 | `hooks/hooks.json`               | Hook definitions (auto-read, dream trigger)           |
-| `scripts/auto_read.py`           | Reads MEMORY.md on first prompt per session           |
+| `scripts/auto_read.py`           | Emits RULES + PRELOAD_DIRECTIVE on first prompt per session; agent then loads MEMORY.md via `get_project_memory` |
 | `scripts/check_dream.py`         | Checks if dream consolidation is needed after write   |
+| `scripts/insight_save_nudge.py`  | Stop hook: reminds model to save when reply had `★ Insight` block |
 | `skills/project-memory/SKILL.md` | Auto-trigger: when and how to save to project memory  |
 | `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)        |
 | `commands/dream.md`              | `/dream` slash command for manual trigger             |
 
-**Auto-read:** UserPromptSubmit hook reads MEMORY.md on the first prompt per session using `session_id` for tracking.
+**Auto-read:** UserPromptSubmit hook emits RULES + PRELOAD_DIRECTIVE on the first prompt per session (tracked via `session_id` state file). The directive instructs the agent to call `ToolSearch` to preload the three MCP tool schemas and then `get_project_memory` to load MEMORY.md — the content itself is not inlined in the hook output because the harness truncates large stdouts. The directive also tells the agent to ignore the `last_dream:` YAML frontmatter returned in the tool result.
 
 **Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 25KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
+
+**Insight save nudge:** Stop hook scans the last assistant message in the transcript for a `★ Insight` marker (produced by Claude Code's built-in **Explanatory** output style, selectable via `/config` → Output Style). If present, emits a stderr reminder (exit 2) so the model can decide whether to save to project memory. Uses `stop_hook_active` as a loop guard. No-op when a different output style is active.
 ## Key Constraints
 
 - Project memory files must be written in English only
