@@ -11,6 +11,18 @@
         ]
       }
     ],
+    "PreToolUse": [
+      {
+        "matcher": ".*set_project_memory|.*update_project_memory",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/block_subagent_writes.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": ".*set_project_memory|.*update_project_memory",

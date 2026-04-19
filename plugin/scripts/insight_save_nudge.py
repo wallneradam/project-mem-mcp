@@ -7,9 +7,14 @@ content that belongs in project memory. Triggering a save reminder only
 when such a block appears gives a high-precision, zero-LLM-cost nudge
 (unlike the retired Haiku-classifier memory_nudge).
 
-Exit codes:
-- 0 = silent (no insight block in last assistant message, or loop guard tripped)
-- 2 = stderr nudge surfaced to the model so it can decide whether to save
+Output:
+- Silent exit 0 when there is no insight block, the loop guard tripped, or
+  project memory was already fully rewritten this turn via
+  set_project_memory (e.g. after a dream consolidation).
+- JSON `{"decision": "block", "reason": "..."}` on stdout + exit 0 when a
+  nudge is warranted. This makes the model continue past Stop and see the
+  reason as feedback, without Claude Code rendering it as a red
+  "Stop hook error" banner (which is what `exit 2 + stderr` produces).
 """
 
 from __future__ import annotations
@@ -49,6 +54,7 @@ def main() -> int:
         return 0
 
     last_text_parts: list[str] = []
+    set_memory_called_this_turn = False
     try:
         with tp.open(encoding="utf-8") as f:
             for line in f:
@@ -59,7 +65,11 @@ def main() -> int:
                     entry = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if entry.get("type") != "assistant":
+                etype = entry.get("type")
+                if etype == "user":
+                    set_memory_called_this_turn = False
+                    continue
+                if etype != "assistant":
                     continue
                 msg = entry.get("message") or {}
                 content = msg.get("content")
@@ -67,10 +77,17 @@ def main() -> int:
                     continue
                 parts: list[str] = []
                 for block in content:
-                    if isinstance(block, dict) and block.get("type") == "text":
+                    if not isinstance(block, dict):
+                        continue
+                    btype = block.get("type")
+                    if btype == "text":
                         t = block.get("text")
                         if isinstance(t, str):
                             parts.append(t)
+                    elif btype == "tool_use":
+                        name = block.get("name") or ""
+                        if "set_project_memory" in name:
+                            set_memory_called_this_turn = True
                 if parts:
                     last_text_parts = parts
     except OSError:
@@ -80,8 +97,14 @@ def main() -> int:
     if INSIGHT_MARKER not in last_text:
         return 0
 
-    print(NUDGE, file=sys.stderr)
-    return 2
+    # Skip the nudge if project memory was just fully rewritten this turn
+    # (e.g. dream consolidation). The model already persisted its state —
+    # nudging to save again is redundant and visually noisy.
+    if set_memory_called_this_turn:
+        return 0
+
+    json.dump({"decision": "block", "reason": NUDGE}, sys.stdout)
+    return 0
 
 
 if __name__ == "__main__":
