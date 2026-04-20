@@ -34,28 +34,50 @@ better organized, and optimized for LLM consumption.
 ## Project CLAUDE.md files:
 {paste all CLAUDE.md contents with their paths}
 
+## Guiding principle
+
+**Default to KEEP.** Prefer removing only information that is genuinely
+outdated, superseded, duplicated, or contradicted by current state. When in
+doubt, keep. Compression means *tighter wording*, not *less content*. It is
+better to leave in something marginally useful than to drop something that
+might matter later — the file has plenty of headroom (50KB threshold).
+
 ## Rules:
-1. REMOVE anything that duplicates information already in CLAUDE.md files
-2. REMOVE completed task details from Current Work (extract any lesson first)
-3. RESTRUCTURE: group related information logically
-4. KEEP all unique insights, gotchas, architecture decisions, and current work context
-5. FORMAT for LLM readability: clear headers, concise bullet points, no fluff
-6. WRITE in English only
-7. Do NOT compress below the current size artificially — organize, don't summarize away detail
-8. Preserve the factual content — you are reorganizing, not rewriting
+1. REMOVE only information that is clearly stale: renamed files no longer at
+   that path, decisions that have since been reversed, patterns that were
+   replaced, facts contradicted by the current CLAUDE.md or code state.
+2. REMOVE content that literally duplicates CLAUDE.md (same fact, same phrasing
+   scope). If MEMORY.md adds nuance, context, or the *why* behind a CLAUDE.md
+   statement, KEEP it — CLAUDE.md is terse by design.
+3. REMOVE completed task details from Current Work, but extract any durable
+   lesson first and promote it to `## Lessons Learned`.
+4. RESTRUCTURE: group related information logically; merge near-duplicates
+   into a single clearer entry rather than deleting either.
+5. KEEP all unique insights, gotchas, architecture decisions, historical
+   rationale ("we chose X because Y"), and current work context. If unsure
+   whether an item is still relevant, KEEP it.
+6. TIGHTEN wording where verbose, but do NOT summarize away detail — a
+   reader should still be able to understand *why* a decision was made.
+7. FORMAT for LLM readability: clear headers, concise bullet points, no fluff.
+8. WRITE in English only.
+9. Preserve the factual content — you are reorganizing and pruning stale
+   entries, not rewriting or compressing for its own sake.
 
 ## Recent Sessions consolidation
 
 Today's date is {TODAY}. Apply these rules to the `## Recent Sessions` section:
 
-- **≤ 7 days old**: keep verbatim as individual entries (newest-first).
-- **7–30 days old**: merge into weekly summary bullets
-  (e.g. `- 2026-03-week-2: <2-3 sentence themed summary of that week's work>`).
-  Drop granular details; keep decisions and state transitions.
-- **> 30 days old**: remove from Recent Sessions entirely. BEFORE removing, scan for
-  any durable lesson (gotcha, convention, decision) and promote it to
-  `## Lessons Learned` or the appropriate section if not already there.
-- Cap the section at ~10 bullets total after consolidation.
+- **≤ 14 days old**: keep verbatim as individual entries (newest-first).
+- **14–60 days old**: keep as individual entries, but tighten wording where
+  verbose. Only merge entries into a weekly summary if they are clearly
+  redundant or cover the same narrow topic.
+- **> 60 days old**: consider merging into a themed summary bullet
+  (e.g. `- 2026-02: <2-3 sentence themed summary>`) only if the individual
+  entries have lost their day-to-day relevance. BEFORE dropping any detail,
+  scan for durable lessons (gotcha, convention, decision) and promote them
+  to `## Lessons Learned` or the appropriate section if not already there.
+- Cap the section at ~20 bullets total after consolidation. Only trim if
+  over the cap — do not trim a shorter section just to tidy it up.
 
 Write back the consolidated MEMORY.md using the set_project_memory MCP tool.
 ```

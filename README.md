@@ -118,7 +118,7 @@ No-op in sessions where no `★ Insight` block is emitted.
 ### Dream Consolidation
 
 Automatic project memory maintenance triggered after writes when:
-- File size exceeds 25KB
+- File size exceeds 50KB
 - Last consolidation was more than 24 hours ago
 
 The dream spawns a sonnet subagent that:

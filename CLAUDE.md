@@ -61,7 +61,7 @@ Three MCP tools:
 
 **Auto-read:** UserPromptSubmit hook emits RULES + PRELOAD_DIRECTIVE on the first prompt per session (tracked via `session_id` state file). The directive instructs the agent to call `ToolSearch` to preload the three MCP tool schemas and then `get_project_memory` to load MEMORY.md — the content itself is not inlined in the hook output because the harness truncates large stdouts. The directive also tells the agent to ignore the `last_dream:` YAML frontmatter returned in the tool result.
 
-**Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 25KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
+**Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 50KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
 
 **Insight save nudge:** Stop hook scans the last assistant message in the transcript for a `★ Insight` marker. The marker is produced by Claude Code's built-in **Explanatory** output style (selectable via `/config` → Output Style) and also appears in setups where a project or global `CLAUDE.md` instructs the model to emit insight blocks, or via custom output styles. If present, emits a stderr reminder (exit 2) so the model can decide whether to save to project memory. Uses `stop_hook_active` as a loop guard. No-op in sessions where no `★ Insight` block is emitted.
 ## Key Constraints

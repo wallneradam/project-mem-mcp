@@ -1,6 +1,6 @@
 """Check if dream consolidation is needed after a project memory write.
 
-Conditions: file > 25KB AND last dream was > 24h ago (or never).
+Conditions: file > 50KB AND last dream was > 24h ago (or never).
 Exit 0 = silent (no dream needed), exit 2 + stderr = signal to Claude.
 
 The last-dream timestamp lives as `last_dream: <ISO 8601 UTC>` inside the
@@ -17,7 +17,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-SIZE_THRESHOLD = 25_600  # 25 KB
+SIZE_THRESHOLD = 51_200  # 50 KB
 DREAM_INTERVAL = 86_400  # 24 hours in seconds
 
 LAST_DREAM_RE = re.compile(r"^\s*last_dream\s*:\s*(\S+)")
