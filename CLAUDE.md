@@ -53,12 +53,15 @@ Three MCP tools:
 | `.mcp.json`                      | Registers MCP server via `uvx` for plugin installs    |
 | `hooks/hooks.json`               | Hook definitions (auto-read, dream trigger)           |
 | `scripts/auto_read.py`           | Emits RULES + PRELOAD_DIRECTIVE on first prompt per session; agent then loads MEMORY.md via `get_project_memory` |
+| `scripts/continuous_save_prime.py` | SessionStart hook — injects `additionalContext` keeping inline save-awareness active for the whole session |
 | `scripts/check_dream.py`         | Checks if dream consolidation is needed after write   |
 | `skills/project-memory/SKILL.md` | Auto-trigger: when and how to save to project memory  |
 | `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)        |
 | `commands/dream.md`              | `/dream` slash command for manual trigger             |
 
 **Auto-read:** UserPromptSubmit hook emits RULES + PRELOAD_DIRECTIVE on the first prompt per session (tracked via `session_id` state file). The directive instructs the agent to call `ToolSearch` to preload the three MCP tool schemas and then `get_project_memory` to load MEMORY.md — the content itself is not inlined in the hook output because the harness truncates large stdouts. The directive also tells the agent to ignore the `last_dream:` YAML frontmatter returned in the tool result.
+
+**Continuous save-awareness:** SessionStart hook emits `hookSpecificOutput.additionalContext` (pattern copied from Anthropic's explanatory-output-style plugin) that primes the agent to call `update_project_memory` inline whenever non-trivial project knowledge surfaces, not only at prompt-time. Complements `auto_read.py`: UserPromptSubmit installs rules + loads MEMORY.md; SessionStart keeps the save impulse active throughout the session.
 
 **Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 50KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
 
