@@ -54,7 +54,6 @@ Three MCP tools:
 | `hooks/hooks.json`               | Hook definitions (auto-read, dream trigger)           |
 | `scripts/auto_read.py`           | Emits RULES + PRELOAD_DIRECTIVE on first prompt per session; agent then loads MEMORY.md via `get_project_memory` |
 | `scripts/check_dream.py`         | Checks if dream consolidation is needed after write   |
-| `scripts/insight_save_nudge.py`  | Stop hook: reminds model to save when reply had `★ Insight` block |
 | `skills/project-memory/SKILL.md` | Auto-trigger: when and how to save to project memory  |
 | `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)        |
 | `commands/dream.md`              | `/dream` slash command for manual trigger             |
@@ -63,7 +62,6 @@ Three MCP tools:
 
 **Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 50KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
 
-**Insight save nudge:** Stop hook scans the last assistant message in the transcript for a `★ Insight` marker. The marker is produced by Claude Code's built-in **Explanatory** output style (selectable via `/config` → Output Style) and also appears in setups where a project or global `CLAUDE.md` instructs the model to emit insight blocks, or via custom output styles. If present, emits a stderr reminder (exit 2) so the model can decide whether to save to project memory. Uses `stop_hook_active` as a loop guard. No-op in sessions where no `★ Insight` block is emitted.
 ## Key Constraints
 
 - Project memory files must be written in English only
