@@ -3,6 +3,12 @@ name: project-memory
 user-invocable: false
 description: >
   Maintain persistent project memory in MEMORY.md using MCP tools.
+  SCOPE: this is *project* memory (codebase/architecture/conventions/gotchas and Recent
+  Sessions of code work) in `<project>/MEMORY.md`, DISTINCT from Claude Code's built-in
+  auto memory (`~/.claude/projects/<hash>/memory/`) which holds user profile/feedback/
+  preferences. Code-about facts → `update_project_memory`; user-about facts → auto memory
+  only. NEVER duplicate across the two systems. NEVER paste text loaded from auto memory
+  as SEARCH text in `update_project_memory` — different files, the match will fail.
   DEFAULT TO SAVE — under-saving silently starves future sessions of context; the dream
   protocol consolidates excess later. When in doubt, save.
   ALWAYS save project memory IMMEDIATELY (mid-task, without asking) when you discover

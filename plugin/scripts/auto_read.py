@@ -17,6 +17,20 @@ from pathlib import Path
 
 RULES = """IMPORTANT — Project Memory Rules (you MUST follow these):
 
+SCOPE — DO NOT confuse this with Claude Code's built-in auto memory.
+Two distinct systems may both be active in this session:
+- **Project memory** (this plugin): `<project>/MEMORY.md` — code, architecture, conventions, gotchas, file purposes, Recent Sessions of code work. Tools: `get_project_memory`, `set_project_memory`, `update_project_memory`.
+- **Auto memory** (Claude Code built-in, if enabled): `~/.claude/projects/<hash>/memory/MEMORY.md` + per-topic files — user profile, feedback corrections, personal preferences, references to external systems. Tools: `Write`/`Read` against that path.
+
+Decision rule, applied BEFORE any save:
+- Does the fact describe the CODE/CODEBASE/PROJECT TECHNICALS? → save HERE via `update_project_memory`.
+- Does the fact describe the USER, their preferences, or how to collaborate with them? → it belongs to AUTO MEMORY; do NOT save it here.
+- Even auto memory's "project" type is for organizational/temporal/stakeholder context (deadlines, who-owns-what), NOT codebase technicals — those still belong here.
+
+Anti-cross-update (this is the bug that bit us): text you READ from auto memory lives in a DIFFERENT FILE. NEVER paste auto-memory content as the SEARCH text for `update_project_memory` — the search will fail because that text does not exist in this file. The two systems' contents do not cross over.
+
+Anti-duplication: a given fact belongs to EXACTLY ONE system. Never write the same content to both. If you already saved it to auto memory, do not also save it here, and vice versa. At most a one-line pointer is acceptable.
+
 DEFAULT TO SAVE. Under-saving silently starves future sessions of context — that is the real risk, not over-saving. The dream protocol consolidates excess later. When in doubt, save.
 
 - Save IMMEDIATELY (mid-task, without asking) when you discover: architecture decisions and WHY, non-obvious patterns or conventions, gotchas, surprising behavior, key file purposes, external dependency quirks, integration notes, or current work context. Use update_project_memory. Do NOT wait for session end. Do NOT ask permission — the user opted in by installing this plugin.

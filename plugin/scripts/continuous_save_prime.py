@@ -21,7 +21,15 @@ ADDITIONAL_CONTEXT = (
     "gotchas, surprising behavior, integration quirks, or current work context. "
     "When you spot one — do not wait until the task is done, do not ask for "
     "permission — immediately call `update_project_memory` to persist it. "
-    "This applies throughout the session, not only at prompt-time."
+    "This applies throughout the session, not only at prompt-time.\n\n"
+    "SCOPE: this is *project* memory — codebase/architecture/conventions/gotchas "
+    "and Recent Sessions of code work, in `<project>/MEMORY.md`. It is DISTINCT "
+    "from Claude Code's built-in auto memory (`~/.claude/projects/<hash>/memory/`), "
+    "which stores user profile, feedback, and personal preferences. Decision: "
+    "code/project-technical facts → `update_project_memory` here; user/preference "
+    "facts → auto memory only. NEVER duplicate the same fact across both systems. "
+    "NEVER use text loaded from auto memory as the SEARCH text for "
+    "`update_project_memory` — they are different files, the match will fail."
 )
 
 
