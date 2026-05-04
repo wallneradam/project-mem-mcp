@@ -18,7 +18,7 @@ When this skill is triggered, spawn a **sonnet** Agent subagent to consolidate t
 2. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`)
 3. **Consolidate** by spawning a sonnet Agent with the prompt below.
    Substitute `{TODAY}` with today's date in `YYYY-MM-DD` format before sending.
-4. **Update timestamp**: run `uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/update_dream_timestamp.py` via Bash. This writes `last_dream: <current UTC ISO 8601>` into the YAML frontmatter at the top of `MEMORY.md` (creates the frontmatter block if absent, updates in place otherwise).
+4. **Update timestamp**: run `uv run --no-project --quiet python ${CLAUDE_PLUGIN_ROOT}/scripts/update_dream_timestamp.py "$CLAUDE_PROJECT_DIR"` via Bash. The first argument is the project root (passed explicitly because the Bash tool may run with an empty `CLAUDE_PROJECT_DIR`; if the argument is empty the script falls back to the env var, then to `cwd`). This writes `last_dream: <current UTC ISO 8601>` into the YAML frontmatter at the top of `MEMORY.md` (creates the frontmatter block if absent, updates in place otherwise). Verify success: stdout prints `update_dream_timestamp: set last_dream=<ts> in <path>`; non-zero exit indicates failure (logged to stderr).
 
 ## Sonnet Agent Prompt
 

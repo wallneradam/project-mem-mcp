@@ -43,19 +43,29 @@ def build_new_content(content: str, now: str) -> str:
     return "".join([lines[0]] + block + lines[closing_idx:])
 
 
-def main() -> int:
-    project_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+def main(argv: list[str]) -> int:
+    if len(argv) >= 2 and argv[1]:
+        project_dir = argv[1]
+    else:
+        project_dir = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+
     if not project_dir:
-        return 0
+        print("update_dream_timestamp: no project dir resolved", file=sys.stderr)
+        return 1
 
     memory_file = Path(project_dir) / "MEMORY.md"
     if not memory_file.is_file():
-        return 0
+        print(
+            f"update_dream_timestamp: MEMORY.md not found at {memory_file}",
+            file=sys.stderr,
+        )
+        return 1
 
     try:
         content = memory_file.read_text(encoding="utf-8")
-    except OSError:
-        return 0
+    except OSError as e:
+        print(f"update_dream_timestamp: read failed: {e}", file=sys.stderr)
+        return 1
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     new_content = build_new_content(content, now)
@@ -67,15 +77,17 @@ def main() -> int:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(new_content)
         os.replace(tmp_path, memory_file)
-    except OSError:
+    except OSError as e:
         try:
             os.unlink(tmp_path)
         except OSError:
             pass
+        print(f"update_dream_timestamp: write failed: {e}", file=sys.stderr)
         return 1
 
+    print(f"update_dream_timestamp: set last_dream={now} in {memory_file}")
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))
