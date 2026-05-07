@@ -56,14 +56,15 @@ Three MCP tools:
 | `scripts/continuous_save_prime.py` | SessionStart hook — injects `additionalContext` keeping inline save-awareness active for the whole session |
 | `scripts/check_dream.py`         | Checks if dream consolidation is needed after write   |
 | `skills/project-memory/SKILL.md` | Auto-trigger: when and how to save to project memory  |
-| `skills/dream/SKILL.md`          | Dream consolidation protocol (sonnet subagent)        |
+| `skills/dream/SKILL.md`          | Dream consolidation protocol — invokes the named subagent below |
+| `agents/dream-consolidator.md`   | Named subagent definition with `model: sonnet` pinned via frontmatter |
 | `commands/dream.md`              | `/dream` slash command for manual trigger             |
 
 **Auto-read:** UserPromptSubmit hook emits RULES + PRELOAD_DIRECTIVE on the first prompt per session (tracked via `session_id` state file). The directive instructs the agent to call `ToolSearch` to preload the three MCP tool schemas and then `get_project_memory` to load MEMORY.md — the content itself is not inlined in the hook output because the harness truncates large stdouts. The directive also tells the agent to ignore the `last_dream:` YAML frontmatter returned in the tool result.
 
 **Continuous save-awareness:** SessionStart hook emits `hookSpecificOutput.additionalContext` (pattern copied from Anthropic's explanatory-output-style plugin) that primes the agent to call `update_project_memory` inline whenever non-trivial project knowledge surfaces, not only at prompt-time. Complements `auto_read.py`: UserPromptSubmit installs rules + loads MEMORY.md; SessionStart keeps the save impulse active throughout the session.
 
-**Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 50KB AND last dream > 24h ago. Spawns a sonnet subagent to consolidate.
+**Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 50KB AND last dream > 24h ago. The dream skill invokes the `dream-consolidator` named subagent (Agent tool with `subagent_type: "dream-consolidator"`, **no `model:` parameter**), which is pinned to Sonnet via its definition's `model: sonnet` frontmatter. Model resolution order in Claude Code: env var `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation `model:` parameter → agent definition's frontmatter → parent's model. Earlier versions relied on a prose "spawn with model: sonnet" instruction; that was unreliable and frequently inherited Opus from the parent.
 
 ## Key Constraints
 
