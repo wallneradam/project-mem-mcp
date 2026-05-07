@@ -2,31 +2,23 @@
 name: project-memory
 user-invocable: false
 description: >
-  Maintain persistent project memory in MEMORY.md using MCP tools.
-  SCOPE: this is *project* memory (codebase/architecture/conventions/gotchas and Recent
-  Sessions of code work) in `<project>/MEMORY.md`, DISTINCT from Claude Code's built-in
-  auto memory (`~/.claude/projects/<hash>/memory/`) which holds user profile/feedback/
-  preferences. Code-about facts → `update_project_memory`; user-about facts → auto memory
-  only. NEVER duplicate across the two systems. NEVER paste text loaded from auto memory
-  as SEARCH text in `update_project_memory` — different files, the match will fail.
-  DEFAULT TO SAVE — under-saving silently starves future sessions of context; the dream
-  protocol consolidates excess later. When in doubt, save.
-  ALWAYS save project memory IMMEDIATELY (mid-task, without asking) when you discover
-  architecture decisions, non-obvious patterns or conventions, gotchas, surprising
-  behavior, key file purposes, external dependency quirks, or current work context.
-  ALWAYS fix project memory entries when existing information becomes outdated or wrong
-  (renamed file, changed version, reversed decision) — do not defer, do not ask.
-  ALWAYS append a 1-2 line entry to '## Recent Sessions' AFTER ANY non-trivial task
-  completion (NOT only at pause signals): finishing a multi-step edit, making a design
-  decision, debugging something unexpected, completing a refactor, resolving a question
-  that required investigation, or when the user signals a pause ("ennyi mára", "jó így",
-  "folytatjuk"). The git log is NOT in context across sessions — this log is the only
-  cross-session continuity.
-  Recent Sessions ≠ changelog: Recent Sessions is high-level session state (SAVE);
-  changelog is per-commit code-change lists (git owns that — DO NOT save).
-  Do NOT save: information already in CLAUDE.md, obvious things derivable from code,
-  temporary debugging state, sensitive data.
-  Do NOT use this skill for simple questions or when only reading code.
+  Maintain persistent project memory in MEMORY.md via MCP tools.
+  SCOPE: codebase/architecture/conventions/gotchas + Recent Sessions of code work,
+  in `<project>/MEMORY.md`. DISTINCT from Claude Code's auto memory
+  (`~/.claude/projects/<hash>/memory/`, holds user profile/preferences/feedback).
+  Code-about → here; user-about → auto memory. NEVER duplicate; NEVER paste
+  auto-memory text as SEARCH in `update_project_memory` (different file, match fails).
+  DEFAULT TO SAVE — under-saving starves future sessions; dream consolidates later.
+  Save IMMEDIATELY, mid-task, without asking, on discovery of: architecture decisions
+  and WHY, non-obvious patterns, gotchas, surprising behavior, key file purposes,
+  dependency quirks, current work context. Fix stale entries (renamed file, changed
+  version, reversed decision) right away.
+  Append a 1-2 line bullet to '## Recent Sessions' after ANY non-trivial task
+  completion: multi-step edit, design decision, unexpected debugging, refactor,
+  investigated answer, or user pause ("ennyi mára", "jó így", "folytatjuk").
+  Recent Sessions ≠ per-commit changelog (git owns that). Skip: CLAUDE.md
+  duplicates, code-obvious facts, temp state, secrets, simple questions, read-only
+  work.
 tools: mcp__*__get_project_memory, mcp__*__set_project_memory, mcp__*__update_project_memory
 ---
 
