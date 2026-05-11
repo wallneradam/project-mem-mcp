@@ -12,7 +12,7 @@ tools: Agent, Read, Glob
 
 # Dream — Project Memory Consolidation
 
-When this skill is triggered, invoke the **`dream-consolidator`** named subagent (defined in `plugin/agents/dream-consolidator.md`, pinned to `model: sonnet`) to consolidate the project's MEMORY.md.
+When this skill is triggered, invoke the **`dream-consolidator`** named subagent (defined in `plugin/agents/dream-consolidator.md`, pinned to `model: claude-sonnet-4-6`) to consolidate the project's MEMORY.md.
 
 ## Protocol
 
@@ -45,6 +45,7 @@ The consolidator subagent updates the `last_dream:` timestamp itself as part of 
 
 ## Important
 
-- **Sonnet is pinned via the agent definition's `model: sonnet` frontmatter.** Claude Code's model resolution order is: (1) `CLAUDE_CODE_SUBAGENT_MODEL` env var, (2) per-invocation `model` parameter, (3) the agent definition's `model` frontmatter, (4) the parent's model. If you pass `model:` in the Agent call, it wins over the frontmatter and may downgrade or upgrade away from Sonnet — so **omit it**. Earlier versions of this skill relied on a prose instruction telling the parent to "spawn with model: sonnet"; that was unreliable and frequently silently inherited the parent (Opus), making consolidation slow and expensive. The named-agent + frontmatter approach is the fix.
+- **Sonnet is pinned via the agent definition's `model: claude-sonnet-4-6` frontmatter (full model ID, not the `sonnet` alias).** Claude Code's documented model resolution order is: (1) `CLAUDE_CODE_SUBAGENT_MODEL` env var, (2) per-invocation `model` parameter, (3) the agent definition's `model` frontmatter, (4) the parent's model. If you pass `model:` in the Agent call, it wins over the frontmatter and may downgrade or upgrade away from Sonnet — so **omit it**.
+- **Why full model ID, not the alias:** there is a known Claude Code bug ([anthropics/claude-code#43869](https://github.com/anthropics/claude-code/issues/43869), open as of 2026-05) where model aliases (`sonnet`, `opus`, `haiku`) in *any* of the four mechanisms above are passed through unresolved into the subagent subprocess, fail to parse, and silently fall back to a hardcoded Opus config. Full model IDs survive the unresolved pass-through and route correctly. This is why earlier versions of this plugin (which used `model: sonnet`) still ran consolidation on Opus despite the frontmatter — slow and expensive. Switching to `model: claude-sonnet-4-6` is the active workaround.
 - The consolidator writes back via `set_project_memory` to maintain path validation, then rewrites the frontmatter via `update_dream_timestamp.py`. The timestamp step is owned by the subagent so that direct invocation (without this skill) still leaves a correct `last_dream:` behind — earlier versions kept the post-step here and a direct subagent call silently dropped the timestamp.
 - No backup is written. If you need to recover the pre-dream state, use git (`git show HEAD:MEMORY.md`, `git checkout HEAD -- MEMORY.md`). If the project isn't in git, that's the user's accepted risk.
