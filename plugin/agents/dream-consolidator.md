@@ -44,10 +44,22 @@ Apply these rules to the `## Recent Sessions` section, using the `Today's date` 
 
 ## Output
 
-Write the consolidated MEMORY.md content back via the `set_project_memory` MCP tool, passing the project path the caller provided. Do not write to any other path. Do not edit files directly. Do not include the `last_dream:` YAML frontmatter — the caller's post-step rewrites it.
+Write the consolidated MEMORY.md content back via the `set_project_memory` MCP tool, passing the project path the caller provided. Do not write to any other path. Do not edit files directly. Do not include the `last_dream:` YAML frontmatter in the body you write — the next step rewrites it.
 
 If the project memory MCP tool's schema is not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load it, then call the tool.
 
+## Update timestamp
+
+After `set_project_memory` succeeds, run the timestamp helper via Bash — this is mandatory and your responsibility, not the caller's:
+
+```
+uv run --no-project --quiet python "${CLAUDE_PLUGIN_ROOT}/scripts/update_dream_timestamp.py" "<project_path>"
+```
+
+Substitute `<project_path>` with the absolute path the caller provided. The script rewrites the YAML frontmatter at the top of `MEMORY.md` with `last_dream: <current UTC ISO 8601, with hour:minute:second>`, creating the block if absent. It is idempotent and emits a stdout success line; a non-zero exit indicates failure (logged to stderr).
+
+Do this even if you were invoked directly (not via the dream skill). Skipping it leaves the frontmatter stale, which causes `check_dream.py` to mis-trigger the next dream.
+
 ## Done
 
-After `set_project_memory` succeeds, return a one-line summary of what you changed (e.g. "Merged 3 duplicate entries, removed 1 stale file path, tightened 5 bullets.") — the caller logs this. Do not reprint the full MEMORY.md.
+After the timestamp update succeeds, return a one-line summary of what you changed (e.g. "Merged 3 duplicate entries, removed 1 stale file path, tightened 5 bullets.") — the caller logs this. Do not reprint the full MEMORY.md.

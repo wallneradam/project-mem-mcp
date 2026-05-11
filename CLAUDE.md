@@ -66,6 +66,8 @@ Three MCP tools:
 
 **Dream:** PostToolUse hook triggers after project memory writes (regex matcher: `.*set_project_memory|.*update_project_memory`). Conditions: file > 50KB AND last dream > 24h ago. The dream skill invokes the `dream-consolidator` named subagent (Agent tool with `subagent_type: "dream-consolidator"`, **no `model:` parameter**), which is pinned to Sonnet via its definition's `model: sonnet` frontmatter. Model resolution order in Claude Code: env var `CLAUDE_CODE_SUBAGENT_MODEL` → per-invocation `model:` parameter → agent definition's frontmatter → parent's model. Earlier versions relied on a prose "spawn with model: sonnet" instruction; that was unreliable and frequently inherited Opus from the parent.
 
+The `last_dream:` frontmatter rewrite is owned by the subagent (it runs `update_dream_timestamp.py` via Bash after `set_project_memory`), not by the dream skill's post-step. This ensures a correct timestamp even when the consolidator is invoked directly via the Agent tool (bypassing the skill).
+
 ## Key Constraints
 
 - Project memory files must be written in English only
