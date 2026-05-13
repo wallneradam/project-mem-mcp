@@ -60,11 +60,22 @@ pip install -e .
 
 ### get_project_memory
 
-Retrieves the entire `MEMORY.md` for a project.
+Retrieves `MEMORY.md` content. With no extra args, returns the whole file. The
+server raises `ValueError` if the file would exceed ~20K estimated tokens
+(below most clients' tool-result caps); use `head_only` or `offset/limit` to
+pull what you need.
 
 ```
-get_project_memory(project_path: str) -> str
+get_project_memory(
+    project_path: str,
+    offset: int = 0,           # 1-indexed start line; 0 = from start
+    limit: int | None = None,  # max lines to return
+    head_only: bool = False,   # return only size + heading TOC
+) -> str
 ```
+
+Typical large-file pattern: call once with `head_only=True` to get size and a
+section TOC (line ranges), then fetch sections via `offset/limit`.
 
 ### set_project_memory
 

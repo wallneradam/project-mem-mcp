@@ -62,6 +62,7 @@ Rules for these preload steps:
 - Do them silently — no "let me preload…" narration. Just run the two calls, then proceed with the user's actual request.
 - Call both unconditionally every session. If the tools happen to be already loaded, step 1 is a cheap no-op.
 - If `get_project_memory` raises FileNotFoundError, no MEMORY.md exists yet in this project — proceed without one and create it later via `set_project_memory` when you have something worth persisting.
+- If `get_project_memory` raises ValueError mentioning "MEMORY.md is large", retry with `head_only=True` — the response gives size + a section TOC with line ranges. Use that as your map; pull specific sections later via `offset/limit` when working on a topic that needs them. Do NOT try to load the whole file in chunks at session start — that defeats the purpose of priming.
 - Ignore any YAML frontmatter (`---\\nlast_dream: ...\\n---`) at the top of the returned content — it is internal metadata, not project context.
 
 After these two calls, the three tool schemas and the full project memory stay in context for the rest of the session — all later saves and reads are friction-free."""

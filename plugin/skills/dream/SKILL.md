@@ -16,19 +16,14 @@ When this skill is triggered, invoke the **`dream-consolidator`** named subagent
 
 ## Protocol
 
-1. **Read** the current MEMORY.md content.
-2. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`).
-3. **Consolidate** by calling the `Agent` tool with `subagent_type: "dream-consolidator"`. Pass the inputs in the `prompt`. **Do NOT pass a `model:` parameter** — see precedence note in *Important*.
+1. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`).
+2. **Consolidate** by calling the `Agent` tool with `subagent_type: "dream-consolidator"`. Pass the inputs in the `prompt`. **Do NOT pass a `model:` parameter** — see precedence note in *Important*.
 
    The `prompt` must contain, in this order:
 
    ```
    Today's date: {TODAY}
    Project path: {CLAUDE_PROJECT_DIR}
-
-   ## Current MEMORY.md:
-
-   {paste full MEMORY.md content verbatim}
 
    ## Project CLAUDE.md files:
 
@@ -39,7 +34,7 @@ When this skill is triggered, invoke the **`dream-consolidator`** named subagent
    {content}
    ```
 
-   Substitute `{TODAY}` with today's date in `YYYY-MM-DD` format and `{CLAUDE_PROJECT_DIR}` with the absolute project root before sending. The agent's body (its system prompt) already contains the consolidation rules and Recent Sessions retention policy — do not duplicate them in the user prompt.
+   Substitute `{TODAY}` with today's date in `YYYY-MM-DD` format and `{CLAUDE_PROJECT_DIR}` with the absolute project root before sending. **Do NOT inline MEMORY.md** — the subagent loads it itself via `get_project_memory` (with chunked reads if large; see its Read protocol). The agent's body (its system prompt) already contains the consolidation rules and Recent Sessions retention policy — do not duplicate them in the user prompt.
 
 The consolidator subagent updates the `last_dream:` timestamp itself as part of its protocol (it runs `update_dream_timestamp.py` after `set_project_memory`). You do not need a post-step here.
 

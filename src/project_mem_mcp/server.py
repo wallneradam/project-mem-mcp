@@ -2,11 +2,18 @@
 import sys
 import argparse
 from pathlib import Path
+from typing import Annotated
 
 from fastmcp import FastMCP
 from pydantic.fields import Field
 
 MEMORY_FILE = "MEMORY.md"
+
+# Token-budget guard. Refuse to return the full file in one shot above this
+# estimate (chars/4 heuristic) — Claude Code's tool-result cap is 25K tokens
+# and other MCP clients may have similar limits. Callers can override by
+# passing explicit offset/limit (treated as informed consent).
+MAX_FULL_READ_TOKENS = 20000
 
 
 mcp = FastMCP(
@@ -65,6 +72,52 @@ def get_size_status(size_bytes: int) -> str:
     return f"Size: {format_size(size_bytes)}"
 
 
+def estimate_tokens(text: str) -> int:
+    """Rough token estimate (chars/4 heuristic, no tokenizer dep)."""
+    return len(text) // 4
+
+
+def build_head(content: str) -> str:
+    """Return size metadata + markdown heading TOC with line ranges.
+
+    Used when the caller asks for head_only or when the full file would exceed
+    MAX_FULL_READ_TOKENS. Lines are 1-indexed to match offset/limit semantics
+    a human reader expects (matches `Read` tool conventions in most harnesses).
+    """
+    lines = content.splitlines()
+    total_lines = len(lines)
+    size_bytes = len(content.encode("utf-8"))
+    tokens_est = estimate_tokens(content)
+
+    headings: list[tuple[int, str]] = []
+    for i, line in enumerate(lines, start=1):
+        stripped = line.lstrip()
+        if stripped.startswith("#"):
+            headings.append((i, line.rstrip()))
+
+    out = [
+        f"total_lines: {total_lines}",
+        f"size_bytes: {size_bytes}",
+        f"estimated_tokens: {tokens_est}",
+        "",
+        "sections (line ranges, 1-indexed):",
+    ]
+    if not headings:
+        out.append(f"  1-{total_lines}: (no markdown headings found)")
+    else:
+        if headings[0][0] > 1:
+            out.append(f"  1-{headings[0][0] - 1}: (pre-heading content)")
+        for idx, (start, text) in enumerate(headings):
+            end = headings[idx + 1][0] - 1 if idx + 1 < len(headings) else total_lines
+            out.append(f"  {start}-{end}: {text}")
+    out.append("")
+    out.append(
+        "Use get_project_memory(offset=N, limit=M) to fetch a chunk. "
+        "Offset is 1-indexed line number; limit is line count."
+    )
+    return "\n".join(out)
+
+
 def main():
     # Process command line arguments
     global allowed_directories
@@ -99,26 +152,53 @@ if __name__ == "__main__":
 
 @mcp.tool()
 def get_project_memory(
-    project_path: str = Field(description="The full path to the project directory")
+    project_path: Annotated[str, Field(description="The full path to the project directory")],
+    offset: Annotated[int, Field(description="1-indexed start line; 0 = from start")] = 0,
+    limit: Annotated[int | None, Field(description="Max lines to return; None = all")] = None,
+    head_only: Annotated[bool, Field(description="If True, return only size + heading TOC")] = False,
 ) -> str:
     """
-    Get the whole project memory for the given project path in Markdown format.
+    Get project memory (MEMORY.md) content.
 
-    :return: The project memory content in Markdown format
+    For large files, call with head_only=True first to inspect size + sections,
+    then use offset/limit to fetch chunks. Default returns the whole file unless
+    it exceeds the server's token budget, in which case an error suggests pagination.
+
     :raises FileNotFoundError: If the project path doesn't exist or MEMORY.md is missing
     :raises PermissionError: If the project path is not in allowed directories
+    :raises ValueError: If file exceeds token budget and no offset/limit/head_only given
     """
     pp = Path(project_path).resolve()
 
-    # Check if the project path exists and is a directory
     if not pp.exists() or not pp.is_dir():
         raise FileNotFoundError(f"Project path {project_path} does not exist")
-    # Check if it is inside one of the allowed directories
     if not any(str(pp).startswith(base) for base in allowed_directories):
         raise PermissionError(f"Project path {project_path} is not in allowed directories")
 
-    with open(pp / MEMORY_FILE, "r") as f:
-        return f.read()
+    with open(pp / MEMORY_FILE, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    if head_only:
+        return build_head(content)
+
+    # Chunked read path — caller has opted in via offset/limit.
+    if offset > 0 or limit is not None:
+        lines = content.splitlines(keepends=True)
+        total = len(lines)
+        start = max(0, offset - 1) if offset > 0 else 0
+        end = total if limit is None else min(total, start + limit)
+        chunk = "".join(lines[start:end])
+        return f"# lines {start + 1}-{end} of {total}\n{chunk}"
+
+    # Full-file path — guard against runaway responses.
+    tokens_est = estimate_tokens(content)
+    if tokens_est > MAX_FULL_READ_TOKENS:
+        raise ValueError(
+            f"MEMORY.md is large (~{tokens_est} tokens, threshold {MAX_FULL_READ_TOKENS}). "
+            "Call with head_only=True to get a size+TOC summary, then use "
+            "offset/limit to read sections."
+        )
+    return content
 
 
 @mcp.tool()

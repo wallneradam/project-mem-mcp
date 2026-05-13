@@ -14,8 +14,18 @@ The caller (the dream skill) passes you the following in the user prompt:
 
 - `Today's date:` in `YYYY-MM-DD` format
 - `Project path:` absolute path to the project root (the value to pass as `project_path` to `set_project_memory`)
-- `## Current MEMORY.md:` the full current content
 - `## Project CLAUDE.md files:` each `CLAUDE.md` found in the project, with its path
+
+The caller does NOT inline the current MEMORY.md — you load it yourself via the MCP tools (see Read protocol). This keeps the caller's prompt small and lets you handle files of any size.
+
+## Read protocol
+
+1. Call `get_project_memory(project_path, head_only=True)` first. The response gives `total_lines`, `size_bytes`, `estimated_tokens`, and a section TOC with 1-indexed line ranges.
+2. If `estimated_tokens` is under ~15000, call `get_project_memory(project_path)` to load the whole file. Easy path.
+3. If larger, fetch chunks with `get_project_memory(project_path, offset=N, limit=M)` — one call per section (use the TOC line ranges) or in ~500-line slices, whichever maps better to the structure. Each chunked response is prefixed with `# lines X-Y of TOTAL` so you can track coverage. Keep going until you have read every line at least once — partial coverage causes data loss on writeback.
+4. Reassemble mentally; you now have the full content in context.
+
+Do not edit files directly with Read/Write. The MCP tools enforce the allowed-directory check and the SEARCH/REPLACE patch semantics.
 
 ## Guiding principle
 
@@ -46,7 +56,7 @@ Apply these rules to the `## Recent Sessions` section, using the `Today's date` 
 
 Write the consolidated MEMORY.md content back via the `set_project_memory` MCP tool, passing the project path the caller provided. Do not write to any other path. Do not edit files directly. Do not include the `last_dream:` YAML frontmatter in the body you write — the next step rewrites it.
 
-If the project memory MCP tool's schema is not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load it, then call the tool.
+If the project memory MCP tool schemas are not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load both (you need `get_project_memory` for the Read protocol above and `set_project_memory` for the writeback).
 
 ## Update timestamp
 

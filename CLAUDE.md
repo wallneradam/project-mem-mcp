@@ -38,13 +38,15 @@ Three MCP tools:
 
 | Tool                    | Purpose                                            |
 | ----------------------- | -------------------------------------------------- |
-| `get_project_memory`    | Read the entire `MEMORY.md` for a project          |
+| `get_project_memory`    | Read `MEMORY.md` — full file, `head_only` TOC, or `offset/limit` chunk |
 | `set_project_memory`    | Overwrite the entire `MEMORY.md`                   |
 | `update_project_memory` | Apply a single SEARCH/REPLACE patch to `MEMORY.md` |
 
 **Security model:** Project paths are validated against `--allowed-dir` arguments. If none are provided, the server defaults to the current working directory.
 
 **Patch format:** `update_project_memory` uses a custom SEARCH/REPLACE block format (not unified diff). The search text must appear exactly once in the file; non-unique matches raise `ValueError`. Only one block per call is allowed.
+
+**Read size guard:** `get_project_memory` with no `offset`/`limit`/`head_only` raises `ValueError` when the estimated token count (`chars/4`) exceeds `MAX_FULL_READ_TOKENS` (20000, below Claude Code's 25K tool-result cap). Callers fall back to `head_only=True` (returns size + heading TOC with 1-indexed line ranges) and then chunk via `offset`/`limit`. Explicit `offset`/`limit` is treated as informed consent and bypasses the guard.
 
 ### Plugin Layer (`plugin/`)
 
