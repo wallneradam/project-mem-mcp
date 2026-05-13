@@ -77,6 +77,20 @@ get_project_memory(
 Typical large-file pattern: call once with `head_only=True` to get size and a
 section TOC (line ranges), then fetch sections via `offset/limit`.
 
+### search_project_memory
+
+Substring search inside `MEMORY.md`. Case-insensitive. Returns matching lines
+with 1-indexed line numbers; combine with `get_project_memory(offset, limit)`
+to fetch surrounding context for a hit.
+
+```
+search_project_memory(
+    project_path: str,
+    query: str,
+    max_results: int = 50,
+) -> str
+```
+
 ### set_project_memory
 
 Overwrites the entire `MEMORY.md`. Use when creating a new project memory or when patches fail.

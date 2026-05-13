@@ -50,11 +50,11 @@ DEFAULT TO SAVE. Under-saving silently starves future sessions of context — th
 
 PRELOAD_DIRECTIVE_TEMPLATE = """## MANDATORY FIRST ACTIONS — PRELOAD TOOLS AND LOAD PROJECT MEMORY
 
-The project memory MCP tools (`get_project_memory`, `set_project_memory`, `update_project_memory`) are typically registered as DEFERRED in this harness — their schemas are not loaded until you call `ToolSearch`. Additionally, the MEMORY.md content is NOT injected inline into this hook output (the harness truncates large hook stdouts); you must load it explicitly via `get_project_memory`, whose tool result has no size limit.
+The project memory MCP tools (`get_project_memory`, `search_project_memory`, `set_project_memory`, `update_project_memory`) are typically registered as DEFERRED in this harness — their schemas are not loaded until you call `ToolSearch`. Additionally, the MEMORY.md content is NOT injected inline into this hook output (the harness truncates large hook stdouts); you must load it explicitly via `get_project_memory`, whose tool result has no size limit.
 
 Your VERY FIRST tool calls in this session MUST be, in order:
 
-1. `ToolSearch(query="select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory")`
+1. `ToolSearch(query="select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__search_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory")`
 2. `get_project_memory(project_path="{project_dir}")` — loads the full MEMORY.md into context.
 
 Rules for these preload steps:
@@ -65,7 +65,7 @@ Rules for these preload steps:
 - If `get_project_memory` raises ValueError mentioning "MEMORY.md is large", retry with `head_only=True` — the response gives size + a section TOC with line ranges. Use that as your map; pull specific sections later via `offset/limit` when working on a topic that needs them. Do NOT try to load the whole file in chunks at session start — that defeats the purpose of priming.
 - Ignore any YAML frontmatter (`---\\nlast_dream: ...\\n---`) at the top of the returned content — it is internal metadata, not project context.
 
-After these two calls, the three tool schemas and the full project memory stay in context for the rest of the session — all later saves and reads are friction-free."""
+After these two calls, the four tool schemas and the full project memory stay in context for the rest of the session — all later saves, reads, and searches are friction-free."""
 
 
 def main() -> int:

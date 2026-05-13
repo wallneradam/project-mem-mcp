@@ -254,6 +254,104 @@ def validate_single_block(lines):
         raise ValueError("Missing or multiple >>>>>>> REPLACE markers")
 
 
+def find_match_lines(content: str, needle: str) -> list[int]:
+    """Return 1-indexed line numbers of every exact occurrence of `needle` in `content`."""
+    if not needle:
+        return []
+    lines = []
+    start = 0
+    while True:
+        idx = content.find(needle, start)
+        if idx == -1:
+            break
+        lines.append(content.count("\n", 0, idx) + 1)
+        start = idx + 1
+    return lines
+
+
+def diagnose_missing_search(content: str, search_text: str) -> str:
+    """Build a helpful hint string explaining where SEARCH partially matched.
+
+    Strategy: take the first non-empty line of the SEARCH block and look for it
+    in the file — first exact, then whitespace-normalized. If anything matches,
+    point the caller at those line numbers so they can re-read just that slice
+    instead of the whole file.
+    """
+    search_lines = [ln for ln in search_text.splitlines() if ln.strip()]
+    if not search_lines:
+        return ""
+    first = search_lines[0]
+    file_lines = content.splitlines()
+
+    exact = [i + 1 for i, ln in enumerate(file_lines) if ln == first]
+    if exact:
+        return (
+            f" Hint: the first non-empty line of SEARCH matches exactly at line(s) "
+            f"{exact}. The rest of the block likely diverges (whitespace, stale "
+            f"content, or surrounding lines changed). Re-read around those lines "
+            f"via get_project_memory(offset=N, limit=M)."
+        )
+
+    stripped_target = first.strip()
+    fuzzy = [i + 1 for i, ln in enumerate(file_lines) if ln.strip() == stripped_target]
+    if fuzzy:
+        return (
+            f" Hint: the first non-empty line of SEARCH matches at line(s) "
+            f"{fuzzy} after stripping whitespace. Likely indentation or "
+            f"trailing-whitespace mismatch — re-read those lines verbatim."
+        )
+    return ""
+
+
+@mcp.tool()
+def search_project_memory(
+    project_path: Annotated[str, Field(description="The full path to the project directory")],
+    query: Annotated[str, Field(description="Substring to search for (case-insensitive)")],
+    max_results: Annotated[int, Field(description="Max matches to return")] = 50,
+) -> str:
+    """
+    Search MEMORY.md for a substring. Returns matching lines with 1-indexed line
+    numbers; follow up with get_project_memory(offset=N, limit=M) for surrounding
+    context. Cheap alternative to reading the whole file when looking up a fact.
+
+    :raises FileNotFoundError: If the project path doesn't exist or MEMORY.md is missing
+    :raises PermissionError: If the project path is not in allowed directories
+    """
+    pp = Path(project_path).resolve()
+    if not pp.exists() or not pp.is_dir():
+        raise FileNotFoundError(f"Project path {project_path} does not exist")
+    if not any(str(pp).startswith(base) for base in allowed_directories):
+        raise PermissionError(f"Project path {project_path} is not in allowed directories")
+    if not query:
+        raise ValueError("query must be non-empty")
+
+    with open(pp / MEMORY_FILE, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    needle = query.lower()
+    matches: list[tuple[int, str]] = []
+    for i, line in enumerate(content.splitlines(), start=1):
+        if needle in line.lower():
+            matches.append((i, line))
+            if len(matches) >= max_results:
+                break
+
+    if not matches:
+        return f"No matches for {query!r} in MEMORY.md."
+
+    truncated = " (truncated)" if len(matches) == max_results else ""
+    out = [f"Found {len(matches)} match(es){truncated} for {query!r}:"]
+    for line_no, line in matches:
+        # Cap each line for output sanity — full context is one offset/limit call away.
+        display = line if len(line) <= 200 else line[:200] + "…"
+        out.append(f"L{line_no}: {display}")
+    out.append("")
+    out.append(
+        "Use get_project_memory(offset=N, limit=M) to read context around any match."
+    )
+    return "\n".join(out)
+
+
 def parse_single_block(patch_content):
     """
     Parse a single SEARCH/REPLACE block from the patch content.
@@ -327,11 +425,20 @@ def update_project_memory(
     count = content.count(search_text)
 
     if count == 0:
-        raise ValueError("Could not find the search text in the file. "
-                         "Please ensure the search text exactly matches the content in the file.")
+        hint = diagnose_missing_search(content, search_text)
+        raise ValueError(
+            "Could not find the search text in the file. "
+            "Please ensure the search text exactly matches the content in the file."
+            + hint
+        )
     if count > 1:
-        raise ValueError(f"The search text appears {count} times in the file. "
-                         "Please provide more context to identify the specific occurrence.")
+        positions = find_match_lines(content, search_text)
+        raise ValueError(
+            f"The search text appears {count} times in the file (at line(s) {positions}). "
+            "Add more surrounding context lines to make the match unique, or re-read "
+            "one of those line ranges via get_project_memory(offset=N, limit=M) to "
+            "choose the right anchor."
+        )
 
     # Apply the replacement
     new_content = content.replace(search_text, replace_text)

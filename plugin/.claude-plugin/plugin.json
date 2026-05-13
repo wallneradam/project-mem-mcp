@@ -1,5 +1,5 @@
 {
   "name": "project-mem",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "description": "Persistent project memory with automatic consolidation"
 }

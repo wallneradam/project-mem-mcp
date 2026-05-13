@@ -34,11 +34,12 @@ There are no tests or linting configured in this project.
 
 ### MCP Server (`src/project_mem_mcp/server.py`)
 
-Three MCP tools:
+Four MCP tools:
 
 | Tool                    | Purpose                                            |
 | ----------------------- | -------------------------------------------------- |
 | `get_project_memory`    | Read `MEMORY.md` — full file, `head_only` TOC, or `offset/limit` chunk |
+| `search_project_memory` | Substring search; returns matching lines with 1-indexed line numbers |
 | `set_project_memory`    | Overwrite the entire `MEMORY.md`                   |
 | `update_project_memory` | Apply a single SEARCH/REPLACE patch to `MEMORY.md` |
 
