@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import re
 import sys
 import argparse
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -19,34 +21,35 @@ MAX_FULL_READ_TOKENS = 20000
 mcp = FastMCP(
     name="Project Memory MCP",
     instructions=f"""
-Stores and retrieves project knowledge in `{MEMORY_FILE}`.
+This server manages "project memory": a `{MEMORY_FILE}` file at the project root,
+an agent-maintained knowledge base about the codebase — architecture decisions
+and WHY, non-obvious conventions, gotchas, key file purposes, and a
+"Recent Sessions" log of recent work.
 
-IMPORTANT: You MUST proactively use these tools during your work. When you discover
-non-obvious insights, architecture decisions, gotchas, or conventions — call
-`update_project_memory` IMMEDIATELY, without being asked. This is not optional.
+IMPORTANT: NEVER edit `{MEMORY_FILE}` directly with file-editing tools
+(Write/Edit/sed/...). Always go through the four MCP tools below — they enforce
+safe patching, size guards, and pagination.
 
-## Rules
+Tools:
+- get_project_memory: read at session start. On a "too large" ValueError, retry
+  with head_only=True (returns size + section TOC with line ranges), then fetch
+  sections via offset/limit.
+- search_project_memory: substring lookup; returns matching lines with 1-indexed
+  line numbers. Follow up with get_project_memory(offset, limit) for context.
+- update_project_memory: default for changes. ONE SEARCH/REPLACE block per call,
+  SEARCH text must match exactly once.
+- set_project_memory: new projects or full rewrites only — overwrites the whole
+  file.
 
-- The project memory file **must be in English**
-- Never store sensitive information (passwords, tokens, emails, etc.)
-- Use `set_project_memory` when creating new or completely reorganizing
-- Use `update_project_memory` for incremental changes
+Save proactively, mid-task, without waiting for permission, when you discover:
+architecture decisions and WHY, non-obvious patterns or conventions, gotchas,
+surprising behavior, external dependency quirks, integration notes. After any
+non-trivial task, prepend 1-2 lines to a "## Recent Sessions" section, newest
+first, format: "- YYYY-MM-DD: <what was done/decided>.".
 
-## What TO Store
-
-- Architecture decisions and WHY they were made
-- Code patterns and conventions not obvious from the code itself
-- Known gotchas, edge cases, and hard-won insights
-- Important file paths and their purposes
-- External dependencies and integration notes
-- Current work context (temporarily, while work is in progress)
-
-## What NOT TO Store
-
-- Change log entries — this belongs in git history
-- Information already in CLAUDE.md files
-- Completed task details — extract lessons first, then remove the task info
-- Information obvious from file names or code structure
+Skip: per-commit changelogs (git history owns that), facts already in
+CLAUDE.md / AGENTS.md, code-obvious info, secrets, ephemeral state.
+All content in English.
 """
 )
 
@@ -75,6 +78,51 @@ def get_size_status(size_bytes: int) -> str:
 def estimate_tokens(text: str) -> int:
     """Rough token estimate (chars/4 heuristic, no tokenizer dep)."""
     return len(text) // 4
+
+
+_LAST_DREAM_RE = re.compile(r"^\s*last_dream\s*:")
+
+
+def _now_iso_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _split_frontmatter(content: str) -> tuple[str, str]:
+    """Split content into (frontmatter_block, body).
+
+    frontmatter_block is the full "---\\n...\\n---\\n" prefix (delimiters
+    included, trailing newline included) if present, otherwise "". An
+    unterminated `---` opener is treated as no frontmatter.
+    """
+    lines = content.splitlines(keepends=True)
+    if not lines or lines[0].rstrip("\n") != "---":
+        return "", content
+    for i in range(1, len(lines)):
+        if lines[i].rstrip("\n") == "---":
+            return "".join(lines[: i + 1]), "".join(lines[i + 1 :])
+    return "", content
+
+
+def _apply_last_dream_bump(content: str, now_iso: str) -> str:
+    """Idempotently set `last_dream: <now_iso>` in YAML frontmatter.
+
+    Creates a frontmatter block if absent; updates the existing key in place
+    if present; otherwise appends it. Preserves any other frontmatter keys.
+    """
+    frontmatter, body = _split_frontmatter(content)
+    if not frontmatter:
+        return f"---\nlast_dream: {now_iso}\n---\n\n{content}"
+
+    lines = frontmatter.splitlines(keepends=True)
+    inner = lines[1:-1]
+    for j, line in enumerate(inner):
+        if _LAST_DREAM_RE.match(line):
+            inner[j] = f"last_dream: {now_iso}\n"
+            break
+    else:
+        inner.append(f"last_dream: {now_iso}\n")
+
+    return "".join([lines[0]] + inner + [lines[-1]]) + body
 
 
 def build_head(content: str) -> str:
@@ -203,14 +251,19 @@ def get_project_memory(
 
 @mcp.tool()
 def set_project_memory(
-    project_path: str = Field(description="The full path to the project directory"),
-    project_info: str = Field(description="Complete project information in Markdown format")
+    project_path: Annotated[str, Field(description="The full path to the project directory")],
+    project_info: Annotated[str, Field(description="Complete project information in Markdown format")],
+    bump_last_dream: Annotated[bool, Field(description="If True, set `last_dream:` in YAML frontmatter to current UTC ISO timestamp (idempotent; creates frontmatter if absent; preserves other keys)")] = False,
 ):
     """
     Set the whole project memory for the given project path in Markdown format.
 
     Use when creating a new project memory file, completely replacing an existing one,
     or when `update_project_memory` fails to apply patches.
+
+    If the existing MEMORY.md has a YAML frontmatter block (e.g. `last_dream:`)
+    and the new `project_info` does not, the old frontmatter is preserved
+    automatically — callers do not need to know about it.
 
     :raises FileNotFoundError: If the project path doesn't exist
     :raises PermissionError: If the project path is not in allowed directories
@@ -222,8 +275,21 @@ def set_project_memory(
         raise PermissionError(f"Project path {project_path} is not in allowed directories")
 
     memory_file = pp / MEMORY_FILE
-    with open(memory_file, "w") as f:
-        f.write(project_info)
+
+    new_content = project_info
+    if memory_file.exists():
+        with open(memory_file, "r", encoding="utf-8") as f:
+            old_content = f.read()
+        old_frontmatter, _ = _split_frontmatter(old_content)
+        new_frontmatter, _ = _split_frontmatter(new_content)
+        if old_frontmatter and not new_frontmatter:
+            new_content = old_frontmatter + "\n" + new_content
+
+    if bump_last_dream:
+        new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
+
+    with open(memory_file, "w", encoding="utf-8") as f:
+        f.write(new_content)
 
     size_bytes = memory_file.stat().st_size
     return f"Project memory saved successfully. {get_size_status(size_bytes)}"
@@ -384,8 +450,9 @@ def parse_single_block(patch_content):
 
 @mcp.tool()
 def update_project_memory(
-    project_path: str = Field(description="The full path to the project directory"),
-    patch_content: str = Field(description="Single SEARCH/REPLACE block")
+    project_path: Annotated[str, Field(description="The full path to the project directory")],
+    patch_content: Annotated[str, Field(description="Single SEARCH/REPLACE block")],
+    bump_last_dream: Annotated[bool, Field(description="If True, also set `last_dream:` in YAML frontmatter to current UTC ISO timestamp (idempotent; creates frontmatter if absent; preserves other keys)")] = False,
 ):
     """
     Update the project memory by applying a single search-replace patch.
@@ -442,6 +509,9 @@ def update_project_memory(
 
     # Apply the replacement
     new_content = content.replace(search_text, replace_text)
+
+    if bump_last_dream:
+        new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
 
     with open(memory_file, 'w', encoding='utf-8') as f:
         f.write(new_content)

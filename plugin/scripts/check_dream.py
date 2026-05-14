@@ -4,8 +4,9 @@ Conditions: file > 50KB AND last dream was > 24h ago (or never).
 Exit 0 = silent (no dream needed), exit 2 + stderr = signal to Claude.
 
 The last-dream timestamp lives as `last_dream: <ISO 8601 UTC>` inside the
-YAML frontmatter at the top of MEMORY.md (written by update_dream_timestamp.py
-after each dream run). Missing or unparseable → treated as "never".
+YAML frontmatter at the top of MEMORY.md (refreshed atomically by the
+`set_project_memory(..., bump_last_dream=True)` MCP call at the end of each
+dream run). Missing or unparseable → treated as "never".
 """
 
 from __future__ import annotations
