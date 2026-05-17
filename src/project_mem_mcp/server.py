@@ -125,6 +125,35 @@ def _apply_last_dream_bump(content: str, now_iso: str) -> str:
     return "".join([lines[0]] + inner + [lines[-1]]) + body
 
 
+def _extract_last_dream(frontmatter: str) -> str | None:
+    """Return the raw value of `last_dream:` from a frontmatter block, or None."""
+    if not frontmatter:
+        return None
+    for line in frontmatter.splitlines():
+        m = re.match(r"^\s*last_dream\s*:\s*(.*?)\s*$", line)
+        if m:
+            return m.group(1)
+    return None
+
+
+def _strip_last_dream(content: str) -> str:
+    """Remove any `last_dream:` line from the frontmatter.
+
+    `last_dream:` is MCP-owned — callers must not set it (an LLM-written
+    value tends to be a hard-coded string with `:00` seconds, not a real
+    timestamp). If stripping leaves the frontmatter block empty, drop the
+    block entirely so the caller's intent ("no frontmatter") is honored.
+    """
+    frontmatter, body = _split_frontmatter(content)
+    if not frontmatter:
+        return content
+    lines = frontmatter.splitlines(keepends=True)
+    inner = [line for line in lines[1:-1] if not _LAST_DREAM_RE.match(line)]
+    if not inner:
+        return body
+    return "".join([lines[0]] + inner + [lines[-1]]) + body
+
+
 def build_head(content: str) -> str:
     """Return size metadata + markdown heading TOC with line ranges.
 
@@ -276,14 +305,22 @@ def set_project_memory(
 
     memory_file = pp / MEMORY_FILE
 
-    new_content = project_info
+    # MCP owns `last_dream:` — strip any caller-written value before merging.
+    new_content = _strip_last_dream(project_info)
+
+    old_last_dream: str | None = None
     if memory_file.exists():
         with open(memory_file, "r", encoding="utf-8") as f:
             old_content = f.read()
         old_frontmatter, _ = _split_frontmatter(old_content)
+        old_last_dream = _extract_last_dream(old_frontmatter)
         new_frontmatter, _ = _split_frontmatter(new_content)
         if old_frontmatter and not new_frontmatter:
             new_content = old_frontmatter + "\n" + new_content
+            old_last_dream = None  # already preserved via the verbatim splice
+
+    if old_last_dream is not None:
+        new_content = _apply_last_dream_bump(new_content, old_last_dream)
 
     if bump_last_dream:
         new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
@@ -509,6 +546,14 @@ def update_project_memory(
 
     # Apply the replacement
     new_content = content.replace(search_text, replace_text)
+
+    # MCP owns `last_dream:` — strip from result and splice the old value back,
+    # so a patch that accidentally touches the frontmatter cannot corrupt it.
+    old_frontmatter, _ = _split_frontmatter(content)
+    old_last_dream = _extract_last_dream(old_frontmatter)
+    new_content = _strip_last_dream(new_content)
+    if old_last_dream is not None:
+        new_content = _apply_last_dream_bump(new_content, old_last_dream)
 
     if bump_last_dream:
         new_content = _apply_last_dream_bump(new_content, _now_iso_utc())

@@ -29,28 +29,34 @@ Do not edit files directly with Read/Write. The MCP tools enforce the allowed-di
 
 ## Guiding principle
 
-**Default to KEEP.** Prefer removing only information that is genuinely outdated, superseded, duplicated, or contradicted by current state. When in doubt, keep. Compression means *tighter wording*, not *less content*. It is better to leave in something marginally useful than to drop something that might matter later — the file has plenty of headroom (50KB threshold).
+**MEMORY.md is a working set, not an archive.** Its job is fast re-orientation: when a future session lands in this project, it needs the *current* state of work and just enough context to be useful — not a complete record. The long-term record lives in the **code itself, design docs, plans, and git history**. Anything reconstructible from those sources should not bloat MEMORY.md.
+
+**Default to TIGHTEN.** Older content gets denser as it ages: today's session entries are verbatim, last week's are one-liners, last month's are themed summaries. Multi-paragraph Lessons Learned entries are compressed to their essence — the *why* survives, the play-by-play does not. Keep the file roughly stable in size as new sessions arrive; do not let it grow monotonically. A well-tuned MEMORY.md hovers in a working range, not on a one-way climb.
+
+When in doubt: if a fact is reconstructible from the code, the git log, or a CLAUDE.md, drop it. If it captures a non-obvious *why*, a gotcha, or an active work thread, keep it — but say it in the fewest words that still convey the why.
 
 ## Rules
 
-1. REMOVE only information that is clearly stale: renamed files no longer at that path, decisions that have since been reversed, patterns that were replaced, facts contradicted by the current CLAUDE.md or code state.
-2. REMOVE content that literally duplicates CLAUDE.md (same fact, same phrasing scope). If MEMORY.md adds nuance, context, or the *why* behind a CLAUDE.md statement, KEEP it — CLAUDE.md is terse by design.
-3. REMOVE completed task details from Current Work, but extract any durable lesson first and promote it to `## Lessons Learned`.
-4. RESTRUCTURE: group related information logically; merge near-duplicates into a single clearer entry rather than deleting either.
-5. KEEP all unique insights, gotchas, architecture decisions, historical rationale ("we chose X because Y"), and current work context. If unsure whether an item is still relevant, KEEP it.
-6. TIGHTEN wording where verbose, but do NOT summarize away detail — a reader should still be able to understand *why* a decision was made.
-7. FORMAT for LLM readability: clear headers, concise bullet points, no fluff.
+1. REMOVE information that is stale, superseded, reversed, or contradicted by current state.
+2. REMOVE content reconstructible from code, file structure, git log, or CLAUDE.md. MEMORY.md only earns its place for non-obvious *why*, gotchas, integration quirks, and active work context.
+3. REMOVE completed task details from any "Current Work" section, but first extract any durable lesson and promote it (in compressed form) to `## Lessons Learned`.
+4. MERGE aggressively. Adjacent same-topic entries in Lessons Learned collapse into a single denser entry. Near-duplicates merge — do not preserve both phrasings.
+5. COMPRESS long entries to essence. A multi-paragraph Lessons Learned entry that narrates investigation + diagnosis + fix gets compressed to: the rule/gotcha, one short *why* line, and (where useful) a pointer to a git commit or file path. The play-by-play belongs in git, not here.
+6. KEEP the *why*. Tightening means dropping narration, not dropping rationale. A reader should still understand why a decision was made — just in one sentence instead of three.
+7. FORMAT for LLM readability: clear headers, concise bullets, no fluff.
 8. WRITE in English only.
-9. Preserve the factual content — you are reorganizing and pruning stale entries, not rewriting or compressing for its own sake.
+9. Aim to keep the file roughly the size it was before this dream, or smaller, even after new sessions have been appended. Growth is a signal that older content needs further compression.
 
 ## Recent Sessions consolidation
 
 Apply these rules to the `## Recent Sessions` section, using the `Today's date` value the caller provided:
 
-- **≤ 14 days old**: keep verbatim as individual entries (newest-first).
-- **14–60 days old**: keep as individual entries, but tighten wording where verbose. Only merge entries into a weekly summary if they are clearly redundant or cover the same narrow topic.
-- **> 60 days old**: consider merging into a themed summary bullet (e.g. `- 2026-02: <2-3 sentence themed summary>`) only if the individual entries have lost their day-to-day relevance. BEFORE dropping any detail, scan for durable lessons (gotcha, convention, decision) and promote them to `## Lessons Learned` or the appropriate section if not already there.
-- Cap the section at ~20 bullets total after consolidation. Only trim if over the cap — do not trim a shorter section just to tidy it up.
+- **≤ 7 days old**: keep verbatim as individual entries (newest-first). This is the active working context.
+- **7–30 days old**: tighten each entry to **one line** — the decision + one-clause why, no play-by-play. Example: `- 2026-04-20: Removed insight_save_nudge Stop hook — Stop-hook stderr/JSON both render as red error banner, no clean way to surface model-visible feedback.`
+- **> 30 days old**: merge into a single themed bullet per month or per topic. Example: `- 2026-04: dream timestamp moved from sidecar file → MEMORY.md YAML frontmatter → atomic via bump_last_dream MCP param.` Before dropping detail, promote any still-relevant gotcha/convention/decision into `## Lessons Learned` (in compressed form, not verbatim).
+- Cap the section at ~12 bullets total after consolidation. If you go over, merge or drop older themed bullets first.
+
+The Recent Sessions section is the most volatile part of MEMORY.md. It is normal — expected — for an entry that was added two weeks ago and felt important then to become a one-liner today, and a partial sentence in a themed bullet next month. Do not preserve detail out of sympathy for past-you.
 
 ## Output
 
