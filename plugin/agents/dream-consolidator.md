@@ -58,15 +58,34 @@ Apply these rules to the `## Recent Sessions` section, using the `Today's date` 
 
 The Recent Sessions section is the most volatile part of MEMORY.md. It is normal — expected — for an entry that was added two weeks ago and felt important then to become a one-liner today, and a partial sentence in a themed bullet next month. Do not preserve detail out of sympathy for past-you.
 
-## Output
+## Output — incremental patches (default)
 
-Write the consolidated MEMORY.md content back via `set_project_memory` with `bump_last_dream=True`, passing the project path the caller provided. The `bump_last_dream=True` parameter atomically refreshes the `last_dream:` YAML frontmatter at the top of MEMORY.md with the current UTC timestamp — `check_dream.py` reads this to know when the next consolidation is due. Skipping it (or omitting `bump_last_dream`) leaves the timestamp stale and causes mis-triggers. Do NOT include the `last_dream:` frontmatter in the body you pass — `set_project_memory` preserves any existing frontmatter automatically, and the bump rewrites it.
+Write your changes back as a SERIES of `update_project_memory` SEARCH/REPLACE patches — one localized edit per call. This is the default and strongly preferred path. Do NOT regenerate the whole file with `set_project_memory` unless you are doing a wholesale restructuring (see Fallback): a full rewrite forces you to re-emit tens of thousands of output tokens of mostly-unchanged text, which is the single biggest cause of slow dreams. Incremental patches only generate the parts that actually change.
+
+How to patch:
+
+- One edit per call. Each patch's SEARCH must match EXACTLY ONCE in the current file — include enough surrounding context (a heading, a unique phrase) to disambiguate. The server rejects non-unique matches with a hint; add context and retry, do not fall back to a full rewrite.
+- SEARCH must be the file's CURRENT exact text, byte-for-byte. Two things to strip when building SEARCH from what you read:
+  - the `# lines X-Y of TOTAL` prefix that chunked-read responses prepend (it is not part of the file);
+  - the `---\nlast_dream: ...\n---` YAML frontmatter at the very top — the server owns it; never put it in SEARCH or REPLACE.
+- Tighten/compress a block: SEARCH the verbatim old block, REPLACE with the denser version.
+- Remove a stale/superseded entry: SEARCH the block, REPLACE with empty text.
+- Merge near-duplicates: one patch replaces the first occurrence with the merged entry; a second patch removes the second occurrence.
+- Promote a Recent Sessions lesson into Lessons Learned: one patch inserts the compressed lesson under the right heading; another tightens or removes it from Recent Sessions.
+- Recent Sessions is usually the bulk of the change — you can replace that whole section's body in a single patch. Anchor it: keep the `## Recent Sessions` heading line unchanged at the start of both SEARCH and REPLACE so the boundary is stable.
+- Patches apply sequentially; the file changes after each. Target distinct, non-overlapping regions, and don't let one REPLACE introduce text that breaks a later SEARCH's uniqueness.
+
+Timestamp bump — set `bump_last_dream=True` on EVERY patch you make. It is idempotent (it just stamps the current UTC time) and the server applies it safely without you ever touching the frontmatter. Bumping on every write — not only the last — keeps the `last_dream:` timestamp fresh throughout the run, which prevents the PostToolUse `check_dream.py` hook from seeing a stale timestamp after an intermediate write and firing a spurious DREAM_NEEDED mid-consolidation. `check_dream.py` reads this timestamp to know when the next consolidation is due.
 
 Do this even if you were invoked directly (not via the dream skill).
 
 Do not write to any other path. Do not edit files directly.
 
-If the project memory MCP tool schemas are not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load both (you need `get_project_memory` for the Read protocol above and `set_project_memory` for the writeback).
+## Fallback — full rewrite
+
+`set_project_memory(content, bump_last_dream=True)` (whole-file rewrite) is the right tool ONLY when the consolidation is a wholesale reorganization touching the majority of the file (e.g. reordering most sections). In the rare case that NO content edits are warranted at all but the timestamp must still be refreshed, call `set_project_memory` with the unchanged content and `bump_last_dream=True` so the dream does not immediately re-trigger. The server preserves any existing frontmatter automatically and the bump rewrites the `last_dream:` value — do not include the frontmatter in the body you pass.
+
+If the project memory MCP tool schemas are not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load all three (`get_project_memory` for the Read protocol above, `update_project_memory` for the default patch writeback, `set_project_memory` for the fallback).
 
 ## Done
 
