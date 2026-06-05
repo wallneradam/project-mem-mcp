@@ -111,7 +111,7 @@ def _apply_last_dream_bump(content: str, now_iso: str) -> str:
     """
     frontmatter, body = _split_frontmatter(content)
     if not frontmatter:
-        return f"---\nlast_dream: {now_iso}\n---\n\n{content}"
+        return f"---\nlast_dream: {now_iso}\n---\n\n{content.lstrip()}"
 
     lines = frontmatter.splitlines(keepends=True)
     inner = lines[1:-1]
