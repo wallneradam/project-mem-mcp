@@ -73,7 +73,9 @@ def main() -> int:
 
     print(
         f"DREAM_NEEDED: Project memory is {file_size} bytes and hasn't been "
-        "consolidated in 24h+. Run the dream skill NOW to consolidate. "
+        "consolidated in 24h+. Run the `project-mem:dream` skill NOW to "
+        "consolidate (use the full plugin-namespaced skill name, not bare "
+        "`dream`). "
         "Do NOT ask the user — just do it automatically.",
         file=sys.stderr,
     )
