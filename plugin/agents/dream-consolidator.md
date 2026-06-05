@@ -2,6 +2,7 @@
 name: dream-consolidator
 description: Consolidates a project's MEMORY.md by removing genuinely stale entries, merging near-duplicates, and tightening wording while preserving content. Invoked by the dream skill.
 model: claude-sonnet-4-6
+effort: low
 ---
 
 # Dream Consolidator
