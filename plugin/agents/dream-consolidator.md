@@ -32,7 +32,9 @@ Do not edit files directly with Read/Write. The MCP tools enforce the allowed-di
 
 **MEMORY.md is a working set, not an archive.** Its job is fast re-orientation: when a future session lands in this project, it needs the *current* state of work and just enough context to be useful — not a complete record. The long-term record lives in the **code itself, design docs, plans, and git history**. Anything reconstructible from those sources should not bloat MEMORY.md.
 
-**Default to TIGHTEN.** Older content gets denser as it ages: today's session entries are verbatim, last week's are one-liners, last month's are themed summaries. Multi-paragraph Lessons Learned entries are compressed to their essence — the *why* survives, the play-by-play does not. Keep the file roughly stable in size as new sessions arrive; do not let it grow monotonically. A well-tuned MEMORY.md hovers in a working range, not on a one-way climb.
+**Default to TIGHTEN.** Older content gets denser as it ages: today's session entries are verbatim, last week's are one-liners, last month's are themed summaries. Multi-paragraph Lessons Learned entries are compressed to their essence — the *why* survives, the play-by-play does not. A well-tuned MEMORY.md hovers in a working range, not on a one-way climb.
+
+**Bloated files must actively SHRINK — not just hold flat.** "Keep it roughly the same size" is the goal only once the file is already in a healthy working range (≲ ~40KB / ~10K tokens). Above that the file is bloated, and the dream's job is to *cut it down*, not merely stop it growing. Every hook-triggered dream runs because the file crossed the ~50KB trigger threshold, so by construction it is already bloated: on any file above ~50KB, **target at least a ~30% size reduction in this pass**, and repeat over successive dreams until it settles into the healthy range. A 170KB MEMORY.md is a failure state, not a steady state — if you finish a pass and the file is still far above the healthy range, you were too timid; cut harder next time.
 
 When in doubt: if a fact is reconstructible from the code, the git log, or a CLAUDE.md, drop it. If it captures a non-obvious *why*, a gotcha, or an active work thread, keep it — but say it in the fewest words that still convey the why.
 
@@ -46,7 +48,18 @@ When in doubt: if a fact is reconstructible from the code, the git log, or a CLA
 6. KEEP the *why*. Tightening means dropping narration, not dropping rationale. A reader should still understand why a decision was made — just in one sentence instead of three.
 7. FORMAT for LLM readability: clear headers, concise bullets, no fluff.
 8. WRITE in English only.
-9. Aim to keep the file roughly the size it was before this dream, or smaller, even after new sessions have been appended. Growth is a signal that older content needs further compression.
+9. SIZE TARGET. If the file is in the healthy range (≲ ~40KB), keep it roughly that size or smaller. If it is bloated (> ~50KB — true of every hook-triggered dream), cut it by **at least ~30% this pass**; do not stop at cosmetic tightening. Verify before finishing: estimate the new size and confirm you actually hit the target — if not, find more to merge, compress, or drop (dormant topics first).
+
+## Dormant topic consolidation (where the big wins are)
+
+The age tiers below govern Recent Sessions, but the bulk of a bloated file is usually NOT Recent Sessions — it is accumulated topic detail (a feature, subproject, investigation, or migration that has its own block in Lessons Learned or a dedicated section). Apply an age heuristic to those topic blocks too — this is where most of the ~30% comes from:
+
+- A topic is **dormant** if it has not appeared in `## Recent Sessions` within the last ~30 days AND is complete/shipped per the code or CLAUDE.md (i.e. not an open work thread). Use the most recent Recent Sessions mention of the topic as its "last touched" date.
+- **Compress a dormant topic hard:** collapse its whole block to a single paragraph — or one line — that keeps ONLY the durable gotcha and its *why*. Drop the play-by-play, the version-by-version history ("did X in 0.4.7, changed to Y in 0.4.9, …" → just the current rule), and anything reconstructible from code / git / CLAUDE.md. A finished feature that left no surprising gotcha can be dropped entirely.
+- **Active work threads stay detailed** — anything mentioned in the last ~30 days, or referencing open/in-progress/blocked work. Do not compress these; the whole point of the file is fast re-orientation on what is live.
+- When unsure whether a topic is dormant, check whether its facts are already captured in a CLAUDE.md — if so, it is safe to drop here regardless of age.
+
+This is the lever for the size target: on a bloated file, sweep dormant topics first and compress them aggressively, *then* tighten Recent Sessions.
 
 ## Recent Sessions consolidation
 
@@ -59,11 +72,25 @@ Apply these rules to the `## Recent Sessions` section, using the `Today's date` 
 
 The Recent Sessions section is the most volatile part of MEMORY.md. It is normal — expected — for an entry that was added two weeks ago and felt important then to become a one-liner today, and a partial sentence in a themed bullet next month. Do not preserve detail out of sympathy for past-you.
 
-## Output — incremental patches (default)
+## Output — choose your writeback mode by the SCALE of change
 
-Write your changes back as a SERIES of `update_project_memory` SEARCH/REPLACE patches — one localized edit per call. This is the default and strongly preferred path. Do NOT regenerate the whole file with `set_project_memory` unless you are doing a wholesale restructuring (see Fallback): a full rewrite forces you to re-emit tens of thousands of output tokens of mostly-unchanged text, which is the single biggest cause of slow dreams. Incremental patches only generate the parts that actually change.
+The dominant cost of a dream is output-token generation, and the two writeback tools have opposite cost curves. Pick by how much of the file you are changing:
 
-How to patch:
+- **Full rewrite** (`set_project_memory`) — cost ≈ size of the NEW file. **This is the right tool for an aggressive shrink**, because you emit only the small new version, not the bulky old one. On a bloated file you are removing/restructuring a large fraction, so this is almost always the cheaper *and* more effective path: a single streamed pass instead of dozens of round-trips.
+- **Incremental patches** (`update_project_memory`) — cost ≈ Σ(SEARCH + REPLACE) across all patches. Cheap ONLY when you touch little: steady-state maintenance on an already-healthy file (append a session, tighten a few bullets, most text unchanged). On a bloated file patches are PESSIMAL — every SEARCH must quote the verbatim bulky old text you are trying to delete, so a 180KB→50KB shrink via patches costs ~4-5× the same shrink via one rewrite.
+
+**Decision rule:**
+- File bloated (> ~50KB — every hook-triggered dream) and you intend a ~30% cut → **use `set_project_memory` (full rewrite)**. Build the entire consolidated file in context, emit it once with `bump_last_dream=True`. This is now the expected path for triggered dreams, not a fallback.
+- File already healthy, only minor nudges → use incremental patches (below).
+- When in doubt on a bloated file → rewrite. The old "patches are the default" guidance applied to steady-state maintenance; it is the wrong tool for the aggressive consolidation a bloated file needs.
+
+### Full rewrite (`set_project_memory`) — the aggressive-shrink path
+
+Reassemble the whole consolidated MEMORY.md in context and call `set_project_memory(project_path, project_info=<full new content>, bump_last_dream=True)` once. Do NOT include the `---\nlast_dream: ...\n---` frontmatter in `project_info` — the server owns it and `bump_last_dream` refreshes it. The server preserves/splices the frontmatter automatically. One call, small output (the shrunk file), timestamp bumped — done.
+
+### Incremental patches (`update_project_memory`) — the steady-state path
+
+Use only when the file is already healthy and you are making localized edits. How to patch:
 
 - One edit per call. Each patch's SEARCH must match EXACTLY ONCE in the current file — include enough surrounding context (a heading, a unique phrase) to disambiguate. The server rejects non-unique matches with a hint; add context and retry, do not fall back to a full rewrite.
 - SEARCH must be the file's CURRENT exact text, byte-for-byte. Two things to strip when building SEARCH from what you read:
@@ -82,11 +109,11 @@ Do this even if you were invoked directly (not via the dream skill).
 
 Do not write to any other path. Do not edit files directly.
 
-## Fallback — full rewrite
+## Timestamp-only refresh
 
-`set_project_memory(content, bump_last_dream=True)` (whole-file rewrite) is the right tool ONLY when the consolidation is a wholesale reorganization touching the majority of the file (e.g. reordering most sections). In the rare case that NO content edits are warranted at all but the timestamp must still be refreshed, call `set_project_memory` with the unchanged content and `bump_last_dream=True` so the dream does not immediately re-trigger. The server preserves any existing frontmatter automatically and the bump rewrites the `last_dream:` value — do not include the frontmatter in the body you pass.
+In the rare case that NO content edits are warranted at all but the timestamp must still be refreshed, call `set_project_memory` with the unchanged content and `bump_last_dream=True` so the dream does not immediately re-trigger. The server preserves the existing frontmatter automatically and the bump rewrites the `last_dream:` value — do not include the frontmatter in the body you pass.
 
-If the project memory MCP tool schemas are not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load all three (`get_project_memory` for the Read protocol above, `update_project_memory` for the default patch writeback, `set_project_memory` for the fallback).
+If the project memory MCP tool schemas are not yet loaded in your context, call `ToolSearch` first with `select:mcp__plugin_project-mem_project-mem-mcp__get_project_memory,mcp__plugin_project-mem_project-mem-mcp__update_project_memory,mcp__plugin_project-mem_project-mem-mcp__set_project_memory` to load all three (`get_project_memory` for the Read protocol, `set_project_memory` for the aggressive-shrink/whole-file path, `update_project_memory` for steady-state patches).
 
 ## Done
 
