@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
+import argparse
+import contextlib
+import hashlib
+import os
 import re
 import sys
-import argparse
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
@@ -10,6 +14,29 @@ from fastmcp import FastMCP
 from pydantic.fields import Field
 
 MEMORY_FILE = "MEMORY.md"
+
+# Cross-platform advisory file lock for the read-modify-write critical section
+# of the two write tools. Each session runs its own MCP server process, so two
+# sessions writing the same MEMORY.md are two OS processes with no shared lock
+# — without this a concurrent read-modify-write can silently lose the earlier
+# writer's edit (last writer wins). Implemented on the stdlib only (no filelock
+# dependency): fcntl on POSIX, msvcrt on Windows.
+try:
+    import fcntl
+
+    def _lock_fd(fd: int) -> None:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+
+    def _unlock_fd(fd: int) -> None:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+except ImportError:  # Windows
+    import msvcrt
+
+    def _lock_fd(fd: int) -> None:
+        msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+
+    def _unlock_fd(fd: int) -> None:
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
 
 # Token-budget guard. Refuse to return the full file in one shot above this
 # estimate (chars/4 heuristic) — Claude Code's tool-result cap is 25K tokens
@@ -85,6 +112,69 @@ _LAST_DREAM_RE = re.compile(r"^\s*last_dream\s*:")
 
 def _now_iso_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _write_lock_path(memory_file: Path) -> Path:
+    """Stable lock-file path for a project's MEMORY.md, in the OS temp dir.
+
+    Keyed by a hash of the resolved MEMORY.md path so all processes touching the
+    same file contend for the same lock. Kept out of the project dir (no repo
+    pollution / .gitignore needed) and never renamed — flock binds to the inode,
+    so the lock file must be stable while MEMORY.md itself is replaced atomically.
+    """
+    key = hashlib.sha1(str(memory_file).encode("utf-8")).hexdigest()[:16]
+    return Path(tempfile.gettempdir()) / f"project-mem-write-{key}.lock"
+
+
+@contextlib.contextmanager
+def _memory_lock(memory_file: Path):
+    """Hold an exclusive advisory lock across a read-modify-write.
+
+    Fail-open: if the lock cannot be acquired (permission, odd filesystem), log
+    and proceed unlocked — losing the write would be worse than a rare race, and
+    atomic replacement still prevents torn reads/corruption regardless.
+    """
+    fd = None
+    try:
+        fd = os.open(str(_write_lock_path(memory_file)), os.O_CREAT | os.O_RDWR, 0o644)
+        _lock_fd(fd)
+    except OSError as e:
+        eprint(f"project-mem: write lock unavailable ({e}); proceeding without it")
+        if fd is not None:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            fd = None
+    try:
+        yield
+    finally:
+        if fd is not None:
+            try:
+                _unlock_fd(fd)
+            finally:
+                os.close(fd)
+
+
+def _atomic_write(target: Path, content: str) -> None:
+    """Write `content` to `target` atomically: temp file in the same dir, then
+    os.replace(). A reader (or a crash) never sees a half-written file — it sees
+    either the old or the new complete file. The temp file shares the target's
+    directory so os.replace stays a same-filesystem atomic rename.
+    """
+    fd, tmp = tempfile.mkstemp(
+        dir=str(target.parent), prefix=f".{target.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, str(target))
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 def _split_frontmatter(content: str) -> tuple[str, str]:
@@ -308,25 +398,25 @@ def set_project_memory(
     # MCP owns `last_dream:` — strip any caller-written value before merging.
     new_content = _strip_last_dream(project_info)
 
-    old_last_dream: str | None = None
-    if memory_file.exists():
-        with open(memory_file, "r", encoding="utf-8") as f:
-            old_content = f.read()
-        old_frontmatter, _ = _split_frontmatter(old_content)
-        old_last_dream = _extract_last_dream(old_frontmatter)
-        new_frontmatter, _ = _split_frontmatter(new_content)
-        if old_frontmatter and not new_frontmatter:
-            new_content = old_frontmatter + "\n" + new_content
-            old_last_dream = None  # already preserved via the verbatim splice
+    with _memory_lock(memory_file):
+        old_last_dream: str | None = None
+        if memory_file.exists():
+            with open(memory_file, "r", encoding="utf-8") as f:
+                old_content = f.read()
+            old_frontmatter, _ = _split_frontmatter(old_content)
+            old_last_dream = _extract_last_dream(old_frontmatter)
+            new_frontmatter, _ = _split_frontmatter(new_content)
+            if old_frontmatter and not new_frontmatter:
+                new_content = old_frontmatter + "\n" + new_content
+                old_last_dream = None  # already preserved via the verbatim splice
 
-    if old_last_dream is not None:
-        new_content = _apply_last_dream_bump(new_content, old_last_dream)
+        if old_last_dream is not None:
+            new_content = _apply_last_dream_bump(new_content, old_last_dream)
 
-    if bump_last_dream:
-        new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
+        if bump_last_dream:
+            new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
 
-    with open(memory_file, "w", encoding="utf-8") as f:
-        f.write(new_content)
+        _atomic_write(memory_file, new_content)
 
     size_bytes = memory_file.stat().st_size
     return f"Project memory saved successfully. {get_size_status(size_bytes)}"
@@ -518,48 +608,50 @@ def update_project_memory(
             f"Project memory file does not exist at {memory_file}. Use `set_project_memory` to set the whole project memory instead."
         )
 
-    # Read the current file content
-    with open(memory_file, 'r', encoding='utf-8') as f:
-        content = f.read()
-
-    # Parse the single block
+    # Parse the single block — depends only on patch_content, so do it before
+    # taking the lock (a malformed-patch error need not serialize behind writers).
     search_text, replace_text = parse_single_block(patch_content)
 
-    # Check exact match count
-    count = content.count(search_text)
+    with _memory_lock(memory_file):
+        # Read the current file content (inside the lock so the match check and
+        # the write see the same state — no lost update under concurrency).
+        with open(memory_file, 'r', encoding='utf-8') as f:
+            content = f.read()
 
-    if count == 0:
-        hint = diagnose_missing_search(content, search_text)
-        raise ValueError(
-            "Could not find the search text in the file. "
-            "Please ensure the search text exactly matches the content in the file."
-            + hint
-        )
-    if count > 1:
-        positions = find_match_lines(content, search_text)
-        raise ValueError(
-            f"The search text appears {count} times in the file (at line(s) {positions}). "
-            "Add more surrounding context lines to make the match unique, or re-read "
-            "one of those line ranges via get_project_memory(offset=N, limit=M) to "
-            "choose the right anchor."
-        )
+        # Check exact match count
+        count = content.count(search_text)
 
-    # Apply the replacement
-    new_content = content.replace(search_text, replace_text)
+        if count == 0:
+            hint = diagnose_missing_search(content, search_text)
+            raise ValueError(
+                "Could not find the search text in the file. "
+                "Please ensure the search text exactly matches the content in the file."
+                + hint
+            )
+        if count > 1:
+            positions = find_match_lines(content, search_text)
+            raise ValueError(
+                f"The search text appears {count} times in the file (at line(s) {positions}). "
+                "Add more surrounding context lines to make the match unique, or re-read "
+                "one of those line ranges via get_project_memory(offset=N, limit=M) to "
+                "choose the right anchor."
+            )
 
-    # MCP owns `last_dream:` — strip from result and splice the old value back,
-    # so a patch that accidentally touches the frontmatter cannot corrupt it.
-    old_frontmatter, _ = _split_frontmatter(content)
-    old_last_dream = _extract_last_dream(old_frontmatter)
-    new_content = _strip_last_dream(new_content)
-    if old_last_dream is not None:
-        new_content = _apply_last_dream_bump(new_content, old_last_dream)
+        # Apply the replacement
+        new_content = content.replace(search_text, replace_text)
 
-    if bump_last_dream:
-        new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
+        # MCP owns `last_dream:` — strip from result and splice the old value back,
+        # so a patch that accidentally touches the frontmatter cannot corrupt it.
+        old_frontmatter, _ = _split_frontmatter(content)
+        old_last_dream = _extract_last_dream(old_frontmatter)
+        new_content = _strip_last_dream(new_content)
+        if old_last_dream is not None:
+            new_content = _apply_last_dream_bump(new_content, old_last_dream)
 
-    with open(memory_file, 'w', encoding='utf-8') as f:
-        f.write(new_content)
+        if bump_last_dream:
+            new_content = _apply_last_dream_bump(new_content, _now_iso_utc())
+
+        _atomic_write(memory_file, new_content)
 
     size_bytes = memory_file.stat().st_size
     return f"Successfully updated project memory. {get_size_status(size_bytes)}"

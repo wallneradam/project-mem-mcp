@@ -17,7 +17,7 @@ When this skill is triggered, invoke the **`dream-consolidator`** named subagent
 ## Protocol
 
 1. **Read** all CLAUDE.md files in the project (`**/CLAUDE.md`).
-2. **Consolidate** by calling the `Agent` tool with `subagent_type: "dream-consolidator"`. Pass the inputs in the `prompt`. **Do NOT pass a `model:` parameter** — see precedence note in *Important*.
+2. **Consolidate** by calling the `Agent` tool with `subagent_type: "project-mem:dream-consolidator"` (the fully-qualified `plugin:agent` name — the bare `dream-consolidator` is NOT found and the call fails). Pass the inputs in the `prompt`. **Do NOT pass a `model:` parameter** — see precedence note in *Important*.
 
    The `prompt` must contain, in this order:
 
